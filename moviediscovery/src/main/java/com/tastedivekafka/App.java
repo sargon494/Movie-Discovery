@@ -1,17 +1,16 @@
 package com.tastedivekafka;
 
-import javax.swing.JOptionPane;
-
 import com.tastedivekafka.kafka.KafkaConsumerService;
 import com.tastedivekafka.kafka.KafkaResponseConsumerService;
 import com.tastedivekafka.ui.LoginFrame;
-import com.tastedivekafka.ui.MainFrame;
+
+import javax.swing.SwingUtilities;
 
 public class App {
 
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) {
 
-        // 1) Lanzar consumer que procesa movie-topic
+        // ===== 1) Consumer principal (movie-topic) =====
         new Thread(() -> {
             try {
                 KafkaConsumerService consumerService = new KafkaConsumerService();
@@ -21,25 +20,12 @@ public class App {
             }
         }).start();
 
-        // 2) Crear consumer de respuestas UNA sola vez
+        // ===== 2) Consumer de respuestas (SINGLETON de facto) =====
         KafkaResponseConsumerService responseConsumer = new KafkaResponseConsumerService();
 
-        // 3) Lanzar LoginFrame
-        javax.swing.SwingUtilities.invokeLater(() -> {
-            LoginFrame loginFrame = new LoginFrame(new LoginFrame.LoginListener() {
-                @Override
-                public void onLoginSuccess() {
-                    // Abrir MainFrame solo si login OK
-                    MainFrame main = new MainFrame(responseConsumer);
-                    main.setVisible(true);
-                }
-
-                @Override
-                public void onLoginFailure(String reason) {
-                    JOptionPane.showMessageDialog(null, reason);
-                }
-            });
-
+        // ===== 3) UI =====
+        SwingUtilities.invokeLater(() -> {
+            LoginFrame loginFrame = new LoginFrame(responseConsumer);
             loginFrame.setVisible(true);
         });
     }
