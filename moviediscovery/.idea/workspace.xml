@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="7ea954e7-d02d-4855-aa21-b5416040f9df" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tastedivekafka/App.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tastedivekafka/App.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tastedivekafka/api/TasteDiveClient.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tastedivekafka/api/TasteDiveClient.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tastedivekafka/db/MovieDAO.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tastedivekafka/db/MovieDAO.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tastedivekafka/db/RecommendationDAO.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tastedivekafka/db/RecommendationDAO.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tastedivekafka/ui/LoginFrame.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tastedivekafka/ui/LoginFrame.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/tastedivekafka/App$1.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/tastedivekafka/App$1.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/tastedivekafka/App.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/tastedivekafka/App.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/tastedivekafka/api/TasteDiveClient.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/tastedivekafka/api/TasteDiveClient.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/tastedivekafka/db/DBConnection.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/tastedivekafka/db/DBConnection.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/tastedivekafka/db/MovieDAO.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/tastedivekafka/db/MovieDAO.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/tastedivekafka/db/RecommendationDAO.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/tastedivekafka/db/RecommendationDAO.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/tastedivekafka/db/UserDAO.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/tastedivekafka/db/UserDAO.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/tastedivekafka/kafka/KafkaConsumerService.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/tastedivekafka/kafka/KafkaConsumerService.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/tastedivekafka/kafka/KafkaProducerService.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/tastedivekafka/kafka/KafkaProducerService.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/tastedivekafka/kafka/KafkaResponseConsumerService$ResponseHandler.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/tastedivekafka/kafka/KafkaResponseConsumerService$ResponseHandler.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/tastedivekafka/kafka/KafkaResponseConsumerService.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/tastedivekafka/kafka/KafkaResponseConsumerService.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/tastedivekafka/ui/LoginFrame$1.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/tastedivekafka/ui/LoginFrame$1.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/tastedivekafka/ui/LoginFrame$2.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/tastedivekafka/ui/LoginFrame$2.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/tastedivekafka/ui/LoginFrame$3.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/tastedivekafka/ui/LoginFrame$3.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/tastedivekafka/ui/LoginFrame$4.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/tastedivekafka/ui/LoginFrame$4.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/tastedivekafka/ui/LoginFrame$5.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/tastedivekafka/ui/LoginFrame$5.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/tastedivekafka/ui/LoginFrame$6.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/tastedivekafka/ui/LoginFrame$6.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/tastedivekafka/ui/LoginFrame$7.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/tastedivekafka/ui/LoginFrame$7.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/tastedivekafka/ui/LoginFrame$LoginListener.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/tastedivekafka/ui/LoginFrame$LoginListener.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/tastedivekafka/ui/LoginFrame.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/tastedivekafka/ui/LoginFrame.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/tastedivekafka/ui/MainFrame.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/tastedivekafka/ui/MainFrame.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/images/logo.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/images/photo-1614850523011-8f49ffc73908.jpeg" beforeDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
+  </component>
+  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
+  "lastFilter": {
+    "state": "OPEN",
+    "assignee": "sargon494"
+  }
+}]]></component>
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "https://github.com/sargon494/movie-discovery.git",
+    "accountId": "7f6d2062-0ff5-4e83-a1ab-785d072b2034"
+  }
+}]]></component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "associatedIndex": 8
+}]]></component>
+  <component name="ProjectId" id="38ZUE4VMcEkCLQ87NnAGi9PUro0" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Application.App.executor": "Run",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "git-widget-placeholder": "main",
+    "kotlin-language-version-configured": "true",
+    "project.structure.last.edited": "Modules",
+    "project.structure.proportion": "0.15",
+    "project.structure.side.proportion": "0.2",
+    "run.code.analysis.last.selected.profile": "pProject Default",
+    "settings.editor.selected.configurable": "reference.settings.project.maven.importing"
+  }
+}]]></component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="7ea954e7-d02d-4855-aa21-b5416040f9df" name="Changes" comment="" />
+      <created>1769006472970</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1769006472970</updated>
+    </task>
+    <servers />
+  </component>
+</project>
