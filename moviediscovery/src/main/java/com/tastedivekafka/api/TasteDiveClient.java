@@ -1,71 +1,70 @@
 package com.tastedivekafka.api;
 
-import java.io.IOException;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
 
-import org.json.JSONArray;
-import org.json.JSONObject;
-
+/**
+ * Cliente para consumir la API de TasteDive.
+ *
+ * Esta clase se encarga de:
+ *  - Construir la URL de petición
+ *  - Codificar correctamente el nombre de la película
+ *  - Realizar la petición HTTP
+ *  - Devolver la respuesta en formato JSON (String)
+ */
 public class TasteDiveClient {
 
-    public List<String> getRecommendations(String movie) throws IOException, InterruptedException {
+    /**
+     * Clave de acceso a la API de TasteDive.
+     * ⚠️ En un entorno real, esto debería ir en variables de entorno
+     * o en un archivo de configuración, no en código.
+     */
+    private static final String API_KEY = "1066479-MovieDis-CD78C85B"; 
 
-        movie = movie.replaceAll("[^a-zA-Z0-9\\s]", "").trim();
+    /**
+     * Realiza una petición a la API de TasteDive y obtiene recomendaciones
+     * relacionadas con una película.
+     *
+     * @param movie nombre de la película a buscar
+     * @return respuesta cruda en formato JSON (String)
+     *         o un JSON de error si falla la petición
+     */
+    public String getRawRecommendations(String movie) {
+        try {
+            // Limpiar espacios y codificar el nombre de la película para URL
+            String encodedMovie = URLEncoder.encode(movie.trim(), StandardCharsets.UTF_8);
 
-        if (movie.isEmpty()) {
-            return new ArrayList<>();
+            // Construcción de la URL de la API
+            String url = "https://tastedive.com/api/similar?q="
+                + encodedMovie
+                + "&type=movie&info=1&k="
+                + API_KEY;
+
+            // Crear cliente HTTP
+            HttpClient client = HttpClient.newHttpClient();
+
+            // Construir la petición HTTP GET
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .GET()
+                    .build();
+
+            // Enviar petición y recibir respuesta
+            HttpResponse<String> response = client.send(
+                    request, 
+                    HttpResponse.BodyHandlers.ofString()
+            );
+
+            // Devolver el JSON recibido
+            return response.body();
+
+        } catch (Exception e) {
+            // En caso de error, devolver JSON controlado con mensaje de error
+            return "{\"error\": \"" + e.getMessage() + "\"}";
         }
-
-        String encodedMovie = URLEncoder.encode(movie, StandardCharsets.UTF_8);
-
-        String url = "https://tastedive.com/api/similar?q=" + encodedMovie +
-                "&type=movie&limit=5&k=1066479-MovieDis-CD78C85B";
-
-        HttpClient client = HttpClient.newHttpClient();
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .GET()
-                .build();
-
-        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-        JSONObject json = new JSONObject(response.body());
-
-        JSONObject similar = null;
-
-        // ✅ acepta ambos formatos
-        if (json.has("Similar")) {
-            similar = json.getJSONObject("Similar");
-        } else if (json.has("similar")) {
-            similar = json.getJSONObject("similar");
-        } else {
-            System.out.println("TasteDive NO devolvió 'Similar'. Response: " + response.body());
-            return new ArrayList<>();
-        }
-
-        // ✅ acepta resultados en mayúscula o minúscula
-        JSONArray results;
-        if (similar.has("Results")) {
-            results = similar.getJSONArray("Results");
-        } else if (similar.has("results")) {
-            results = similar.getJSONArray("results");
-        } else {
-            System.out.println("TasteDive NO devolvió 'Results'. Response: " + response.body());
-            return new ArrayList<>();
-        }
-
-        List<String> recs = new ArrayList<>();
-
-        for (int i = 0; i < results.length(); i++) {
-            recs.add(results.getJSONObject(i).getString("name")); // O "Name"
-        }
-
-        return recs;
     }
 }
