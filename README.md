@@ -1,4 +1,4 @@
-🎬 MovieDiscovery
+#🎬 MovieDiscovery#
 📌 Descripción
 
 MovieDiscovery es una aplicación de escritorio desarrollada en Java que permite descubrir películas similares a partir de una búsqueda del usuario. El sistema utiliza una arquitectura orientada a eventos basada en Apache Kafka, integrando una API externa (TasteDive) y una base de datos PostgreSQL para ofrecer recomendaciones de forma asíncrona, escalable y desacoplada.
