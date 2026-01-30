@@ -3,121 +3,183 @@ package com.tastedivekafka.ui;
 import com.tastedivekafka.kafka.KafkaProducerService;
 import com.tastedivekafka.kafka.KafkaResponseConsumerService;
 
+import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.MouseEvent;
+import java.net.URI;
 
+/**
+ * Ventana principal de la aplicación MovieDiscovery.
+ *
+ * Funciones principales:
+ *  - Introducir nombre de película
+ *  - Enviar petición a Kafka (Producer)
+ *  - Escuchar recomendaciones (Consumer)
+ *  - Mostrar resultados en una galería de tarjetas
+ */
 public class MainFrame extends JFrame {
+    private static final int WIDTH = 900;
+    private static final int HEIGHT = 650;
 
     private final JTextField txtMovie = new JTextField();
-    private final JTextArea txtArea = new JTextArea();
+    private final JPanel moviesPanel = new JPanel();
     private final KafkaProducerService producer = new KafkaProducerService();
-
-    public MainFrame() {
-        this(new KafkaResponseConsumerService());
-    }
+    private int xMouse, yMouse; // Para arrastrar ventana
 
     public MainFrame(KafkaResponseConsumerService responseConsumer) {
-        setTitle("TasteDive Kafka App");
-        setSize(500, 500);
-        setLocationRelativeTo(null);
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-
-        JPanel mainPanel = new JPanel(new GridBagLayout());
-        mainPanel.setBackground(new Color(245, 245, 245));
-        setContentPane(mainPanel);
-
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(10, 10, 10, 10);
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-
-        // ===== Etiqueta y campo de película =====
-        JLabel lblMovie = new JLabel("Película:");
-        gbc.gridx = 0;
-        gbc.gridy = 0;
-        gbc.weightx = 0;
-        mainPanel.add(lblMovie, gbc);
-
-        txtMovie.setPreferredSize(new Dimension(200, 30));
-        addPlaceholder(txtMovie, "Ingrese el nombre de la película");
-        gbc.gridx = 1;
-        gbc.weightx = 1;
-        mainPanel.add(txtMovie, gbc);
-
-        // ===== Botón Buscar =====
-        JButton btnSearch = new JButton("Buscar");
-        btnSearch.setBackground(new Color(70, 130, 180));
-        btnSearch.setForeground(Color.WHITE);
-        btnSearch.setFocusPainted(false);
-        btnSearch.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
-        // Hover effect
-        btnSearch.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseEntered(java.awt.event.MouseEvent e) {
-                btnSearch.setBackground(new Color(100, 160, 210));
-            }
-
-            public void mouseExited(java.awt.event.MouseEvent e) {
-                btnSearch.setBackground(new Color(70, 130, 180));
-            }
-        });
-
-        gbc.gridx = 2;
-        gbc.weightx = 0;
-        mainPanel.add(btnSearch, gbc);
-
-        // ===== Área de texto con scroll =====
-        txtArea.setEditable(false);
-        txtArea.setLineWrap(true);
-        txtArea.setWrapStyleWord(true);
-        txtArea.setBorder(BorderFactory.createLineBorder(Color.GRAY, 1));
-        JScrollPane scrollPane = new JScrollPane(txtArea);
-        scrollPane.setPreferredSize(new Dimension(450, 350));
-
-        gbc.gridx = 0;
-        gbc.gridy = 1;
-        gbc.gridwidth = 3;
-        gbc.fill = GridBagConstraints.BOTH;
-        gbc.weighty = 1;
-        mainPanel.add(scrollPane, gbc);
-
-        // ===== Consumidor de Kafka =====
-        new Thread(() -> {
-            responseConsumer.listen(response -> {
-                SwingUtilities.invokeLater(() -> {
-                    txtArea.setText("✅ Respuesta recibida:\n" + response);
-                });
-            });
-        }).start();
-
-        // ===== Acción del botón =====
-        btnSearch.addActionListener(e -> {
-            String movie = txtMovie.getText().trim();
-            if (movie.isEmpty() || movie.equals("Ingrese el nombre de la película")) {
-                txtArea.setText("❗ Introduce una película antes de buscar.");
-                return;
-            }
-
-            producer.send(movie);
-            txtArea.setText("🔄 Buscando en TasteDive...\n(Procesado por Kafka)");
-        });
+        initUI();
+        bindConsumer(responseConsumer); // Conectar con consumer de respuestas
     }
 
-    private void addPlaceholder(JTextField field, String placeholder) {
-        field.setForeground(Color.GRAY);
-        field.setText(placeholder);
-        field.addFocusListener(new java.awt.event.FocusAdapter() {
-            public void focusGained(java.awt.event.FocusEvent e) {
-                if (field.getText().equals(placeholder)) {
-                    field.setText("");
-                    field.setForeground(Color.BLACK);
-                }
+    /**
+     * Conecta el consumer de Kafka para recibir recomendaciones
+     */
+    private void bindConsumer(KafkaResponseConsumerService responseConsumer) {
+        new Thread(() -> {
+            responseConsumer.listen(response -> {
+                // Actualizamos la UI en el hilo de Swing
+                SwingUtilities.invokeLater(() -> updateGallery(response));
+            });
+        }).start();
+    }
+
+    /**
+     * Actualiza la galería de películas con la respuesta recibida
+     */
+    private void updateGallery(String response) {
+        // Si el mensaje no tiene el formato esperado, ignorarlo
+        if (!response.contains("||")) {
+            System.out.println("Ignorando mensaje de formato antiguo: " + response);
+            return; 
+        }
+
+        moviesPanel.removeAll();
+
+        String[] movies = response.split(";;"); // Separar cada recomendación
+        for (String movieData : movies) {
+            String[] parts = movieData.split("\\|\\|");
+            if (parts.length >= 3) {
+                moviesPanel.add(new MovieCard(parts[0], parts[1], parts[2])); // Crear tarjeta
             }
-            public void focusLost(java.awt.event.FocusEvent e) {
-                if (field.getText().isEmpty()) {
-                    field.setForeground(Color.GRAY);
-                    field.setText(placeholder);
-                }
-            }
+        }
+
+        moviesPanel.revalidate();
+        moviesPanel.repaint();
+    }
+
+    /**
+     * Enviar búsqueda al producer y mostrar mensaje temporal
+     */
+    private void onSearch() {
+        String movie = txtMovie.getText().trim();
+        if (movie.isEmpty() || movie.equals("Ingrese el nombre de la película")) return;
+
+        producer.send(movie); // Enviamos petición a Kafka
+        moviesPanel.removeAll();
+        moviesPanel.add(new JLabel("Buscando recomendaciones...", SwingConstants.CENTER));
+        moviesPanel.revalidate();
+    }
+
+    /**
+     * Inicializa la UI
+     */
+    private void initUI() {
+        setUndecorated(true);
+        setSize(WIDTH, HEIGHT);
+        setLocationRelativeTo(null);
+        setDefaultCloseOperation(EXIT_ON_CLOSE);
+
+        BackgroundPanel bgPanel = new BackgroundPanel();
+        setContentPane(bgPanel);
+
+        // Barra superior para cerrar/arrastrar
+        JPanel menuBar = new JPanel(null);
+        menuBar.setBounds(0, 0, WIDTH, 30);
+        menuBar.setBackground(new Color(45, 45, 45));
+
+        JLabel btnExit = new JLabel("X", SwingConstants.CENTER);
+        btnExit.setBounds(WIDTH - 40, 0, 40, 30);
+        btnExit.setForeground(Color.WHITE);
+        btnExit.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnExit.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(MouseEvent e) { System.exit(0); }
         });
+
+        menuBar.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mousePressed(MouseEvent e) { xMouse = e.getX(); yMouse = e.getY(); }
+        });
+        menuBar.addMouseMotionListener(new java.awt.event.MouseMotionAdapter() {
+            public void mouseDragged(MouseEvent e) { setLocation(e.getXOnScreen() - xMouse, e.getYOnScreen() - yMouse); }
+        });
+        menuBar.add(btnExit);
+        bgPanel.add(menuBar);
+
+        // Contenedor principal
+        JPanel mainContainer = new JPanel(new BorderLayout());
+        mainContainer.setOpaque(false);
+        mainContainer.setBounds(20, 50, WIDTH - 40, HEIGHT - 70);
+
+        // Buscador
+        JPanel searchBox = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        searchBox.setOpaque(false);
+        txtMovie.setPreferredSize(new Dimension(300, 30));
+        JButton btnSearch = new JButton("Buscar");
+        btnSearch.addActionListener(e -> onSearch());
+        searchBox.add(txtMovie);
+        searchBox.add(btnSearch);
+        mainContainer.add(searchBox, BorderLayout.NORTH);
+
+        // Panel de películas (grid)
+        moviesPanel.setLayout(new GridLayout(0, 4, 20, 20));
+        moviesPanel.setOpaque(false);
+        JScrollPane scroll = new JScrollPane(moviesPanel);
+        scroll.setOpaque(false);
+        scroll.getViewport().setOpaque(false);
+        scroll.setBorder(null);
+        mainContainer.add(scroll, BorderLayout.CENTER);
+
+        bgPanel.add(mainContainer);
+    }
+
+    // --- CLASE INTERNA: TARJETA DE PELÍCULA ---
+    private static class MovieCard extends JPanel {
+        private Image img;
+
+        public MovieCard(String title, String genre, String url) {
+            setLayout(new BorderLayout());
+            setOpaque(false);
+            setPreferredSize(new Dimension(150, 250));
+
+            JLabel lbl = new JLabel(title, SwingConstants.CENTER);
+            lbl.setForeground(Color.WHITE);
+            add(lbl, BorderLayout.SOUTH);
+
+            new Thread(() -> {
+                try {
+                    img = ImageIO.read(URI.create(url).toURL()); // Cargamos imagen desde URL
+                    repaint();
+                } catch (Exception e) {
+                    System.err.println("Error cargando imagen: " + e.getMessage());
+                }
+            }).start();
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            if (img != null) g.drawImage(img, (getWidth()-140)/2, 0, this);
+            else {
+                // Placeholder gris si no hay imagen
+                g.setColor(Color.DARK_GRAY);
+                g.fillRect((getWidth()-140)/2, 0, 140, 200);
+            }
+        }
+    }
+
+    // --- PANEL DE FONDO ---
+    static class BackgroundPanel extends JPanel {
+        public BackgroundPanel() { setLayout(null); setBackground(new Color(25, 25, 25)); }
+        @Override protected void paintComponent(Graphics g) { super.paintComponent(g); }
     }
 }

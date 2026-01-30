@@ -1,85 +1,197 @@
 package com.tastedivekafka.kafka;
 
-import com.tastedivekafka.api.TasteDiveClient;
-import com.tastedivekafka.db.MovieDAO;
-import com.tastedivekafka.db.RecommendationDAO;
-import org.apache.kafka.clients.consumer.*;
-import org.apache.kafka.clients.producer.*;
-
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.sql.SQLException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Properties;
 
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.errors.WakeupException;
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import com.tastedivekafka.api.TasteDiveClient;
+import com.tastedivekafka.db.MovieDAO;
+import com.tastedivekafka.db.RecommendationDAO;
+
+/**
+ * Servicio Kafka encargado de:
+ * 1. Consumir peticiones de películas desde "movie-topic"
+ * 2. Consultar la API de TasteDive
+ * 3. Guardar datos en la base de datos
+ * 4. Enviar recomendaciones al topic de respuesta "movie-responses"
+ */
 public class KafkaConsumerService {
 
+    // Consumer para leer mensajes
     private final KafkaConsumer<String, String> consumer;
+    // Producer para enviar resultados
     private final KafkaProducer<String, String> producer;
+    // Flag para controlar el bucle principal
+    private volatile boolean running = true;
 
     public KafkaConsumerService() {
 
-        Properties consumerProps = new Properties();
-        consumerProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, 
-                "localhost:9092");
-        consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, 
-                "movie-workers");
-        consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, 
-                "false");
-        consumerProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, 
-                "earliest");
-        consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
+        /* =========================
+           CONFIGURACIÓN DEL CONSUMIDOR
+           ========================= */
+        Properties cProps = new Properties();
+        cProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092"); // broker Kafka
+        cProps.put(ConsumerConfig.GROUP_ID_CONFIG, "backend-processor-group"); // grupo de consumidores
+        cProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest"); // leer últimos mensajes si es nuevo
+
+        // Commit manual de offsets tras procesar cada mensaje
+        cProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
+
+        // Deserializadores de Kafka
+        cProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
                 "org.apache.kafka.common.serialization.StringDeserializer");
-        consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+        cProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
                 "org.apache.kafka.common.serialization.StringDeserializer");
 
-        consumer = new KafkaConsumer<>(consumerProps);
+        // Creamos consumer y suscribimos al topic de peticiones
+        consumer = new KafkaConsumer<>(cProps);
         consumer.subscribe(List.of("movie-topic"));
 
-        Properties producerProps = new Properties();
-        producerProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, 
-                "localhost:9092");
-        producerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+        /* =========================
+           CONFIGURACIÓN DEL PRODUCTOR
+           ========================= */
+        Properties pProps = new Properties();
+        pProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
+        pProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
                 "org.apache.kafka.common.serialization.StringSerializer");
-        producerProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+        pProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
                 "org.apache.kafka.common.serialization.StringSerializer");
 
-        producer = new KafkaProducer<>(producerProps);
+        producer = new KafkaProducer<>(pProps);
+
+        /* =========================
+           SHUTDOWN LIMPIO
+           ========================= */
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            System.out.println("🛑 Cerrando Kafka...");
+            running = false;
+            consumer.wakeup(); // Despierta el poll si está bloqueado
+        }));
     }
 
-    public void listen() {
+    /**
+     * Bucle principal de consumo
+     */
+    public void listen() throws SQLException {
 
+        // Cliente de la API y DAOs de BD
         TasteDiveClient api = new TasteDiveClient();
         MovieDAO movieDAO = new MovieDAO();
         RecommendationDAO recDAO = new RecommendationDAO();
 
-        while (true) {
-            ConsumerRecords<String, String> records =
-                    consumer.poll(Duration.ofMillis(500));
+        System.out.println("🚀 BACKEND LISTO");
 
-            try {
+        try (consumer) {
+            while (running) {
+
+                // Poll con timeout para no bloquear indefinidamente
+                ConsumerRecords<String, String> records =
+                        consumer.poll(Duration.ofMillis(500));
+
                 for (ConsumerRecord<String, String> record : records) {
 
-                    String movie = record.value();
-                    int movieId = movieDAO.getOrCreateMovie(movie);
+                    String movieQuery = record.value();
+                    System.out.println("📩 Petición: " + movieQuery);
 
-                    List<String> recommendations = api.getRecommendations(movie);
-                    for (String r : recommendations) {
-                        recDAO.save(movieId, r);
+                    try {
+                        /* =========================
+                           1. LLAMADA A LA API
+                           ========================= */
+                        String rawJson = api.getRawRecommendations(movieQuery);
+                        System.out.println("📄 RAW JSON RESPONSE:");
+                        System.out.println(rawJson);
+                        JSONObject json = new JSONObject(rawJson);
+
+                        JSONObject similar = json.optJSONObject("similar");
+                        if (similar == null) {
+                            throw new RuntimeException("Respuesta API inválida");
+                        }
+
+                        JSONArray results = similar.optJSONArray("results");
+                        if (results == null || results.isEmpty()) {
+                            System.out.println("⚠️ Sin resultados para " + movieQuery);
+                            consumer.commitSync(); // commit para marcar mensaje como procesado
+                            continue;
+                        }
+
+                        /* =========================
+                           2. GUARDAR EN BASE DE DATOS
+                           ========================= */
+                        int movieId = movieDAO.getOrCreateMovie(movieQuery);
+                        StringBuilder responseBuilder = new StringBuilder();
+
+                        for (int i = 0; i < results.length(); i++) {
+                            JSONObject item = results.getJSONObject(i);
+
+                            String name = item.optString("name", "Desconocido");
+                            String yID = item.optString("yID", "");
+
+                            String imgUrl;
+
+                            if (!yID.isEmpty()) {
+                                // YouTube thumbnail si existe
+                                imgUrl = "https://img.youtube.com/vi/" + yID + "/0.jpg";
+                            } else {
+                                // Placeholder seguro
+                                String placeholderText = name.trim().replaceAll("[^\\w\\s]", "");
+                                placeholderText = URLEncoder.encode(placeholderText, StandardCharsets.UTF_8);
+                                imgUrl = "https://placehold.co/140x200?text=" + placeholderText
+                                        + "&bg=cccccc&fc=000000";
+                            }
+
+                            // Construir respuesta para Kafka
+                            responseBuilder.append(name)
+                                    .append("||Película||")
+                                    .append(imgUrl);
+
+                            if (i < results.length() - 1) {
+                                responseBuilder.append(";;");
+                            }
+                        }
+
+                        // Enviar mensaje al topic de respuestas
+                        producer.send(new ProducerRecord<>(
+                                "movie-responses",
+                                movieQuery,
+                                responseBuilder.toString()
+                        ));
+
+                        // Commit SOLO si todo ha ido bien
+                        consumer.commitSync();
+                        System.out.println("✅ Procesado OK");
+
+                    } catch (RuntimeException e) {
+                        System.err.println("❌ Error procesando '" + movieQuery + "': " + e.getMessage());
+
+                        // Enviar al topic de errores
+                        producer.send(new ProducerRecord<>(
+                                "movie-errors",
+                                movieQuery,
+                                e.getMessage()
+                        ));
                     }
-
-                    String response = movie + " -> " + String.join(", ", recommendations);
-
-                    producer.send(
-                            new ProducerRecord<>("movie-responses", movie, response)
-                    );
                 }
-
-                // SOLO confirmamos si todo ha ido bien
-                consumer.commitSync();
-
-            } catch (Exception e) {
-                System.err.println("Error procesando mensaje, no se confirma offset");
-                e.printStackTrace();
             }
+        } catch (WakeupException e) {
+            System.out.println("🟡 Wakeup recibido, cerrando...");
+        } finally {
+            producer.flush();
+            producer.close();
+            System.out.println("✅ Kafka cerrado correctamente");
         }
     }
 }
