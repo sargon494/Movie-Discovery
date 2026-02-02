@@ -112,6 +112,8 @@ public class KafkaConsumerService {
                 for (ConsumerRecord<String, String> record : records) {
 
                     String movieQuery = record.value();
+
+                    // Comprobar caché antes de llamar a la API
                     String cachedResponse = cache.getIfPresent(movieQuery);
 
                     if (cachedResponse != null) {
@@ -182,7 +184,8 @@ public class KafkaConsumerService {
                                 responseBuilder.append(";;");
                             }
                         }
-
+                        
+                        // Guardar en caché la respuesta
                         String finalResponse = responseBuilder.toString();
                         cache.put(movieQuery, finalResponse);
 
