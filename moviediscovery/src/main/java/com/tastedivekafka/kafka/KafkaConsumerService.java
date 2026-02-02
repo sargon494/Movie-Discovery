@@ -87,10 +87,9 @@ public class KafkaConsumerService {
     // Cache Caffeine para evitar consultas repetidas
     private final Cache<String, String> cache = 
         Caffeine.newBuilder()
-            .maximumSize(100)
-            .expireAfterWrite(Duration.ofMinutes(15))
+            .maximumSize(500)
+            .expireAfterAccess(Duration.ofMinutes(30))
             .build();
-
 
     /**
      * Bucle principal de consumo
