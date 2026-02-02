@@ -7,6 +7,9 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Properties;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -19,8 +22,6 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import com.tastedivekafka.api.TasteDiveClient;
-import com.tastedivekafka.db.MovieDAO;
-import com.tastedivekafka.db.RecommendationDAO;
 
 /**
  * Servicio Kafka encargado de:
@@ -83,6 +84,14 @@ public class KafkaConsumerService {
         }));
     }
 
+    // Cache Caffeine para evitar consultas repetidas
+    private final Cache<String, String> cache = 
+        Caffeine.newBuilder()
+            .maximumSize(100)
+            .expireAfterWrite(Duration.ofMinutes(15))
+            .build();
+
+
     /**
      * Bucle principal de consumo
      */
@@ -90,8 +99,6 @@ public class KafkaConsumerService {
 
         // Cliente de la API y DAOs de BD
         TasteDiveClient api = new TasteDiveClient();
-        MovieDAO movieDAO = new MovieDAO();
-        RecommendationDAO recDAO = new RecommendationDAO();
 
         System.out.println("🚀 BACKEND LISTO");
 
@@ -105,6 +112,20 @@ public class KafkaConsumerService {
                 for (ConsumerRecord<String, String> record : records) {
 
                     String movieQuery = record.value();
+                    String cachedResponse = cache.getIfPresent(movieQuery);
+
+                    if (cachedResponse != null) {
+                        System.out.println("♻️ Respuesta en caché para: " + movieQuery);
+                        // Enviar respuesta cacheada
+                        producer.send(new ProducerRecord<>(
+                                "movie-responses",
+                                movieQuery,
+                                cachedResponse
+                        ));
+                        // Commit del mensaje
+                        consumer.commitSync();
+                        continue;
+                    }
                     System.out.println("📩 Petición: " + movieQuery);
 
                     try {
@@ -131,7 +152,6 @@ public class KafkaConsumerService {
                         /* =========================
                            2. GUARDAR EN BASE DE DATOS
                            ========================= */
-                        int movieId = movieDAO.getOrCreateMovie(movieQuery);
                         StringBuilder responseBuilder = new StringBuilder();
 
                         for (int i = 0; i < results.length(); i++) {
@@ -163,11 +183,14 @@ public class KafkaConsumerService {
                             }
                         }
 
+                        String finalResponse = responseBuilder.toString();
+                        cache.put(movieQuery, finalResponse);
+
                         // Enviar mensaje al topic de respuestas
                         producer.send(new ProducerRecord<>(
                                 "movie-responses",
                                 movieQuery,
-                                responseBuilder.toString()
+                                finalResponse
                         ));
 
                         // Commit SOLO si todo ha ido bien
