@@ -170,8 +170,7 @@ public class KafkaConsumerService {
                                 // Placeholder seguro
                                 String placeholderText = name.trim().replaceAll("[^\\w\\s]", "");
                                 placeholderText = URLEncoder.encode(placeholderText, StandardCharsets.UTF_8);
-                                imgUrl = "https://placehold.co/140x200?text=" + placeholderText
-                                        + "&bg=cccccc&fc=000000";
+                                imgUrl = "https://dummyimage.com/140x200/cccccc/000000&text=" + placeholderText;
                             }
 
                             // Construir respuesta para Kafka

@@ -1,13 +1,12 @@
 package com.tastedivekafka.ui;
 
+import com.tastedivekafka.cache.ImageCache;
 import com.tastedivekafka.kafka.KafkaProducerService;
 import com.tastedivekafka.kafka.KafkaResponseConsumerService;
 
-import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseEvent;
-import java.net.URI;
 
 /**
  * Ventana principal de la aplicación MovieDiscovery.
@@ -24,7 +23,9 @@ public class MainFrame extends JFrame {
 
     private final JTextField txtMovie = new JTextField();
     private final JPanel moviesPanel = new JPanel();
+
     private final KafkaProducerService producer = new KafkaProducerService();
+    private final ImageCache imageCache = new ImageCache();
     private int xMouse, yMouse; // Para arrastrar ventana
 
     public MainFrame(KafkaResponseConsumerService responseConsumer) {
@@ -60,7 +61,7 @@ public class MainFrame extends JFrame {
         for (String movieData : movies) {
             String[] parts = movieData.split("\\|\\|");
             if (parts.length >= 3) {
-                moviesPanel.add(new MovieCard(parts[0], parts[1], parts[2])); // Crear tarjeta
+                moviesPanel.add(new MovieCard(parts[0], parts[1], parts[2], imageCache)); // Crear tarjeta
             }
         }
 
@@ -142,40 +143,38 @@ public class MainFrame extends JFrame {
         bgPanel.add(mainContainer);
     }
 
-    // --- CLASE INTERNA: TARJETA DE PELÍCULA ---
-    private static class MovieCard extends JPanel {
+    private static class MovieCard extends JPanel{
         private Image img;
 
-        public MovieCard(String title, String genre, String url) {
+        public MovieCard(String title, String genre, String url, ImageCache cache){
             setLayout(new BorderLayout());
-            setOpaque(false);
             setPreferredSize(new Dimension(150, 250));
+            setOpaque(false);
 
             JLabel lbl = new JLabel(title, SwingConstants.CENTER);
             lbl.setForeground(Color.WHITE);
             add(lbl, BorderLayout.SOUTH);
 
             new Thread(() -> {
-                try {
-                    img = ImageIO.read(URI.create(url).toURL()); // Cargamos imagen desde URL
-                    repaint();
-                } catch (Exception e) {
-                    System.err.println("Error cargando imagen: " + e.getMessage());
-                }
+                img = cache.loadImage(url);
+                repaint();
             }).start();
         }
 
-        @Override
-        protected void paintComponent(Graphics g) {
-            super.paintComponent(g);
-            if (img != null) g.drawImage(img, (getWidth()-140)/2, 0, this);
-            else {
-                // Placeholder gris si no hay imagen
-                g.setColor(Color.DARK_GRAY);
-                g.fillRect((getWidth()-140)/2, 0, 140, 200);
-            }
+    @Override
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+
+        // Imagen
+        if(img != null){
+            g.drawImage(img, (getWidth() - 140) / 2, 0, this);
+        } else {
+            // Place holder por si falla
+            g.setColor(Color.DARK_GRAY);
+            g.fillRect((getWidth() - 140) / 2, 0, 140, 200);
         }
     }
+}
 
     // --- PANEL DE FONDO ---
     static class BackgroundPanel extends JPanel {
