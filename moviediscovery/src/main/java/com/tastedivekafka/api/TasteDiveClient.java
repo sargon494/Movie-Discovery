@@ -1,5 +1,7 @@
 package com.tastedivekafka.api;
 
+import com.tastedivekafka.config.Config;
+
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -18,12 +20,13 @@ import java.nio.charset.StandardCharsets;
  */
 public class TasteDiveClient {
 
-    /**
-     * Clave de acceso a la API de TasteDive.
-     * ⚠️ En un entorno real, esto debería ir en variables de entorno
-     * o en un archivo de configuración, no en código.
-     */
-    private static final String API_KEY = "1066479-MovieDis-CD78C85B"; 
+    /** Clave de acceso a la API de TasteDive, leída desde config.properties */
+    private final String apiKey;
+
+    /** Constructor */
+    public TasteDiveClient() {
+        this.apiKey = Config.getApiKey(); // Leemos la key desde el archivo de configuración
+    }
 
     /**
      * Realiza una petición a la API de TasteDive y obtiene recomendaciones
@@ -38,11 +41,11 @@ public class TasteDiveClient {
             // Limpiar espacios y codificar el nombre de la película para URL
             String encodedMovie = URLEncoder.encode(movie.trim(), StandardCharsets.UTF_8);
 
-            // Construcción de la URL de la API
+            // Construcción de la URL de la API con la key desde config
             String url = "https://tastedive.com/api/similar?q="
-                + encodedMovie
-                + "&type=movie&info=1&k="
-                + API_KEY;
+                    + encodedMovie
+                    + "&type=movie&info=1&k="
+                    + apiKey; // usamos la key de Config
 
             // Crear cliente HTTP
             HttpClient client = HttpClient.newHttpClient();
@@ -55,7 +58,7 @@ public class TasteDiveClient {
 
             // Enviar petición y recibir respuesta
             HttpResponse<String> response = client.send(
-                    request, 
+                    request,
                     HttpResponse.BodyHandlers.ofString()
             );
 

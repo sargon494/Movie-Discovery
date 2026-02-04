@@ -1,6 +1,7 @@
 package com.tastedivekafka.ui;
 
 import com.tastedivekafka.db.UserDAO;
+import com.tastedivekafka.session.AppSession;
 
 import javax.swing.*;
 import java.awt.*;
@@ -172,6 +173,7 @@ public class LoginFrame extends JFrame {
             boolean ok = dao.login(user, pass); // Verificamos en BD
 
             if (ok) {
+                AppSession.login(user);
                 if (loginListener != null) loginListener.onLoginSuccess();
                 dispose(); // Cerramos ventana login
             } else {
