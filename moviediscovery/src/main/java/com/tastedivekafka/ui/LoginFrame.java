@@ -142,6 +142,15 @@ public class LoginFrame extends JFrame {
         centerPanel.add(loginButton, gbc);
 
         loginButton.addActionListener(e -> login());
+
+        /* ==== REGISTER BUTTON ==== */
+        JButton registerButton = new JButton("REGISTRATE AQUÍ");
+        styleButton(registerButton); // Estilo visual
+        gbc.gridy = 6;
+        gbc.insets = new Insets(5, 200, 25, 200);
+        centerPanel.add(registerButton, gbc);
+
+        registerButton.addActionListener(e -> signup());
     }
 
     /* ===================== LÓGICA DE LOGIN ===================== */
@@ -172,6 +181,44 @@ public class LoginFrame extends JFrame {
         } catch (Exception ex) {
             if (loginListener != null)
                 loginListener.onLoginFailure("Error al conectar con la BD.");
+        }
+    }
+
+    /* ===================== LÓGICA DE REGISTRAR ===================== */
+
+    public void signup(){
+        String user = userField.getText().trim();
+        String pass = new String(passwordField.getPassword()).trim();
+
+        // VALIDACIÓN
+        if (user.isEmpty() || user.equals(USER_PLACEHOLDER) || pass.isEmpty() || pass.equals(PASS_PLACEHOLDER)){
+            JOptionPane.showMessageDialog(this,
+                "Introduce usuario y contraseña deseados", 
+                "ERROR", 
+                JOptionPane.ERROR_MESSAGE);
+                return;
+        }
+        if (pass.length() < 8 ){
+            JOptionPane.showMessageDialog(this, 
+                "La contraseña debe tener al menos 8 carácteres", 
+                "ERROR", 
+                JOptionPane.ERROR_MESSAGE);
+                return;
+        }
+        UserDAO dao = new UserDAO();
+        boolean ok = dao.register(user, pass);
+
+        if(ok){
+            JOptionPane.showMessageDialog(this, 
+                "Usuario registrado correctamente", 
+                "OK", 
+                JOptionPane.INFORMATION_MESSAGE);
+                passwordField.setText("");
+        } else {
+            JOptionPane.showMessageDialog(this, 
+                "El usuario ya existe", 
+                "ERROR", 
+                JOptionPane.ERROR_MESSAGE);
         }
     }
 
