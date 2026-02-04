@@ -3,6 +3,7 @@ package com.tastedivekafka.ui;
 import com.tastedivekafka.cache.ImageCache;
 import com.tastedivekafka.kafka.KafkaProducerService;
 import com.tastedivekafka.kafka.KafkaResponseConsumerService;
+import com.tastedivekafka.session.AppSession;
 
 import javax.swing.*;
 import java.awt.*;
@@ -29,6 +30,11 @@ public class MainFrame extends JFrame {
     private int xMouse, yMouse; // Para arrastrar ventana
 
     public MainFrame(KafkaResponseConsumerService responseConsumer) {
+        if (!AppSession.isLogged()) {
+            throw new IllegalStateException("No hay sesión activa");
+        }
+
+        setTitle("MovieDiscovery - Usuario: " + AppSession.getCurrentUser());
         initUI();
         bindConsumer(responseConsumer); // Conectar con consumer de respuestas
     }
@@ -49,7 +55,6 @@ public class MainFrame extends JFrame {
      * Actualiza la galería de películas con la respuesta recibida
      */
     private void updateGallery(String response) {
-        // Si el mensaje no tiene el formato esperado, ignorarlo
         if (!response.contains("||")) {
             System.out.println("Ignorando mensaje de formato antiguo: " + response);
             return; 
@@ -121,15 +126,50 @@ public class MainFrame extends JFrame {
         mainContainer.setOpaque(false);
         mainContainer.setBounds(20, 50, WIDTH - 40, HEIGHT - 70);
 
-        // Buscador
-        JPanel searchBox = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        // --- Buscador con botón Logout a la derecha ---
+        JPanel searchBox = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 0));
         searchBox.setOpaque(false);
         txtMovie.setPreferredSize(new Dimension(300, 30));
+
+        // Botón Buscar
         JButton btnSearch = new JButton("Buscar");
+        btnSearch.setBackground(new Color(70, 130, 180));
+        btnSearch.setForeground(Color.WHITE);
+        btnSearch.setFocusPainted(false);
+        btnSearch.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnSearch.addActionListener(e -> onSearch());
         searchBox.add(txtMovie);
         searchBox.add(btnSearch);
+
+        // Botón Logout a la derecha del buscador
+        JButton logoutButton = new JButton("Cerrar sesión");
+        logoutButton.setBackground(new Color(220, 50, 50));
+        logoutButton.setForeground(Color.WHITE);
+        logoutButton.setFocusPainted(false);
+        logoutButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        logoutButton.setPreferredSize(new Dimension(150, 30)); // tamaño fijo
+
+        // Hover style
+        logoutButton.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseEntered(MouseEvent e) { logoutButton.setBackground(new Color(255, 80, 80)); }
+            public void mouseExited(MouseEvent e) { logoutButton.setBackground(new Color(220, 50, 50)); }
+        });
+
+        logoutButton.addActionListener(e -> {
+            AppSession.logout(); // Limpiamos sesión
+            LoginFrame login = new LoginFrame(new LoginFrame.LoginListener() {
+                @Override
+                public void onLoginSuccess() {}
+                @Override
+                public void onLoginFailure(String reason) {}
+            });
+            login.setVisible(true);
+            this.dispose(); // Cerramos MainFrame
+        });
+
+        searchBox.add(logoutButton); // Agregamos a la derecha
         mainContainer.add(searchBox, BorderLayout.NORTH);
+
 
         // Panel de películas (grid)
         moviesPanel.setLayout(new GridLayout(0, 4, 20, 20));
@@ -161,37 +201,30 @@ public class MainFrame extends JFrame {
             }).start();
         }
 
-    @Override
-    protected void paintComponent(Graphics g) {
-        super.paintComponent(g);
+        @Override
+        protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
 
-        int cardWidth = getWidth();
-        int cardHeight = 200;
+            int cardWidth = getWidth();
+            int cardHeight = 200;
 
-        // Imagen
-        if(img != null){
-            int imgWidth = img.getWidth(this);
-            int imgHeight = img.getHeight(this);
-
-            double scale = Math.min((double)140 / imgWidth, (double)cardHeight / imgHeight);
-
-            int drawWidth = (int)(imgWidth * scale);
-            int drawHeight = (int)(imgHeight * scale);
-
-            int x = (cardWidth - drawWidth) / 2;
-            int y = (cardHeight - drawHeight) / 2;
-
-            g.drawImage(img, x, y, drawWidth, drawHeight, this);
-
-        } else {
-            // Place holder por si falla
-            g.setColor(Color.DARK_GRAY);
-            int x = (cardWidth - 140) / 2;
-            int y = 0;
-            g.fillRect(x, y, 140, cardHeight);
+            if(img != null){
+                int imgWidth = img.getWidth(this);
+                int imgHeight = img.getHeight(this);
+                double scale = Math.min((double)140 / imgWidth, (double)cardHeight / imgHeight);
+                int drawWidth = (int)(imgWidth * scale);
+                int drawHeight = (int)(imgHeight * scale);
+                int x = (cardWidth - drawWidth) / 2;
+                int y = (cardHeight - drawHeight) / 2;
+                g.drawImage(img, x, y, drawWidth, drawHeight, this);
+            } else {
+                g.setColor(Color.DARK_GRAY);
+                int x = (cardWidth - 140) / 2;
+                int y = 0;
+                g.fillRect(x, y, 140, cardHeight);
+            }
         }
     }
-}
 
     // --- PANEL DE FONDO ---
     static class BackgroundPanel extends JPanel {
