@@ -165,13 +165,30 @@ public class MainFrame extends JFrame {
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
 
+        int cardWidth = getWidth();
+        int cardHeight = 200;
+
         // Imagen
         if(img != null){
-            g.drawImage(img, (getWidth() - 140) / 2, 0, this);
+            int imgWidth = img.getWidth(this);
+            int imgHeight = img.getHeight(this);
+
+            double scale = Math.min((double)140 / imgWidth, (double)cardHeight / imgHeight);
+
+            int drawWidth = (int)(imgWidth * scale);
+            int drawHeight = (int)(imgHeight * scale);
+
+            int x = (cardWidth - drawWidth) / 2;
+            int y = (cardHeight - drawHeight) / 2;
+
+            g.drawImage(img, x, y, drawWidth, drawHeight, this);
+
         } else {
             // Place holder por si falla
             g.setColor(Color.DARK_GRAY);
-            g.fillRect((getWidth() - 140) / 2, 0, 140, 200);
+            int x = (cardWidth - 140) / 2;
+            int y = 0;
+            g.fillRect(x, y, 140, cardHeight);
         }
     }
 }
