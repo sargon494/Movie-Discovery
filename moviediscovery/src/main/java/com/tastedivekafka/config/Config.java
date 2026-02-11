@@ -9,7 +9,7 @@ public class Config {
     private static Properties props = new Properties();
 
     static {
-        try (InputStream input = Config.class.getResourceAsStream("/config.properties")) {
+        try (InputStream input = Config.class.getResourceAsStream("/config/config.properties")) {
             if (input == null) {
                 throw new RuntimeException("No se encontró config.properties");
             }

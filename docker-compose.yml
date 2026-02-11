@@ -6,24 +6,29 @@ services:
   kafka:
     image: apache/kafka:latest
     container_name: kafka
+    networks:
+      - local-kafka
     ports:
       - "9092:9092"
-      - "9093:9093"
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      
+      KAFKA_LISTENERS: CONTROLLER://0.0.0.0:9093,INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9092
+      
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:9092
+      
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      
       KAFKA_LOG_DIRS: /var/lib/kafka/data
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_LOG_RETENTION_HOURS: 168
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       CLUSTER_ID: "Mk3OEYBSD34fcwNTJENDM2Qk"
+
   kafka-ui:
     image: provectuslabs/kafka-ui
     container_name: kafka-ui
@@ -35,9 +40,9 @@ services:
       - "7777:8080"
     restart: always
     environment:
-      KAFKA_CLUSTERS_0_NAME: kafka
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9093
-      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+      KAFKA_CLUSTERS_0_NAME: local-kraft
+
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092 
 
   postgres:
     image: postgres:16
@@ -68,7 +73,7 @@ services:
     depends_on:
       - postgres
     volumes:
-    - pgadmin_data:/var/lib/pgadmin
+      - pgadmin_data:/var/lib/pgadmin
 
 volumes:
   postgres_data:
