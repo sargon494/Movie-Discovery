@@ -15,9 +15,9 @@ public class DBConnection {
     // URL de conexión a la base de datos
     private static final String URL = "jdbc:postgresql://localhost:5433/mi_base_datos";
     // Usuario de la base de datos
-    private static final String USER = "appuser";
+    private static final String USER = "admin";
     // Contraseña del usuario
-    private static final String PASS = "1234";
+    private static final String PASS = "felipesql";
 
     /**
      * Obtiene una conexión nueva a la base de datos.

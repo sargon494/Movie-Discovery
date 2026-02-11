@@ -45,7 +45,7 @@ public class KafkaConsumerService {
            CONFIGURACIÓN DEL CONSUMIDOR
            ========================= */
         Properties cProps = new Properties();
-        cProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092"); // broker Kafka
+        cProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "127.0.0.1:9092"); // broker Kafka
         cProps.put(ConsumerConfig.GROUP_ID_CONFIG, "backend-processor-group"); // grupo de consumidores
         cProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest"); // leer últimos mensajes si es nuevo
 
@@ -66,7 +66,7 @@ public class KafkaConsumerService {
            CONFIGURACIÓN DEL PRODUCTOR
            ========================= */
         Properties pProps = new Properties();
-        pProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
+        pProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "127.0.0.1:9092");
         pProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
                 "org.apache.kafka.common.serialization.StringSerializer");
         pProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
@@ -198,7 +198,7 @@ public class KafkaConsumerService {
                         consumer.commitSync();
                         System.out.println("✅ Procesado OK");
 
-                    } catch (RuntimeException e) {
+                    } catch (Exception e) {
                         System.err.println("❌ Error procesando '" + movieQuery + "': " + e.getMessage());
 
                         // Enviar al topic de errores
@@ -207,6 +207,7 @@ public class KafkaConsumerService {
                                 movieQuery,
                                 e.getMessage()
                         ));
+                        consumer.commitSync();
                     }
                 }
             }

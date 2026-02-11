@@ -16,9 +16,13 @@ public class KafkaProducerService {
 
     public KafkaProducerService() {
         Properties props = new Properties();
-        props.put("bootstrap.servers", "localhost:9092"); // broker Kafka
+        props.put("bootstrap.servers", "127.0.0.1:9092");
         props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
         props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+
+        props.put("acks", "1");
+        props.put("request.timeout.ms", "30000");
+        props.put("delivery.timeout.ms", "45000");
 
         // Inicializamos producer
         producer = new KafkaProducer<>(props);
@@ -33,10 +37,20 @@ public class KafkaProducerService {
         if (movie == null || movie.trim().isEmpty()) return;
 
         // Enviar mensaje al topic
-        producer.send(new ProducerRecord<>("movie-topic", movie));
+        ProducerRecord<String, String> record = new ProducerRecord<>("movie-topic", movie);
 
-        // Forzar envío inmediato
-        producer.flush();
+        producer.send(record, (metadata, exception) -> {
+            if (exception == null) {
+                System.out.println("✅ Mensaje enviado a: " + metadata.topic() + 
+                                " | Partición: " + metadata.partition() + 
+                                " | Offset: " + metadata.offset());
+            } else {
+                System.err.println("❌ Error al enviar mensaje: " + exception.getMessage());
+                exception.printStackTrace();
+            }
+        });
+
+        producer.flush(); 
     }
 
     /**
