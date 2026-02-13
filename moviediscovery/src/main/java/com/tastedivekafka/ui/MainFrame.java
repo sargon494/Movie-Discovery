@@ -28,8 +28,10 @@ public class MainFrame extends JFrame {
     private final KafkaProducerService producer = new KafkaProducerService();
     private final ImageCache imageCache = new ImageCache();
     private int xMouse, yMouse; // Para arrastrar ventana
+    private final KafkaResponseConsumerService responseConsumer;
 
     public MainFrame(KafkaResponseConsumerService responseConsumer) {
+        this.responseConsumer = responseConsumer;
         if (!AppSession.isLogged()) {
             throw new IllegalStateException("No hay sesión activa");
         }
@@ -66,7 +68,7 @@ public class MainFrame extends JFrame {
         for (String movieData : movies) {
             String[] parts = movieData.split("\\|\\|");
             if (parts.length >= 3) {
-                moviesPanel.add(new MovieCard(parts[0], parts[1], parts[2], imageCache)); // Crear tarjeta
+                moviesPanel.add(new MovieCard(parts[0],"", parts[1], parts[2], imageCache)); // Crear tarjeta
             }
         }
 
@@ -159,17 +161,23 @@ public class MainFrame extends JFrame {
             AppSession.logout(); // Limpiamos sesión
             LoginFrame login = new LoginFrame(new LoginFrame.LoginListener() {
                 @Override
-                public void onLoginSuccess() {}
+                public void onLoginSuccess() {
+                    MainFrame main = new MainFrame(responseConsumer);
+                    main.setVisible(true);
+                }
+
                 @Override
-                public void onLoginFailure(String reason) {}
+                public void onLoginFailure(String reason) {
+                    JOptionPane.showMessageDialog(null, reason);
+                }
             });
             login.setVisible(true);
-            this.dispose(); // Cerramos MainFrame
-        });
+
+            MainFrame.this.dispose(); // Cerramos ventana principal
+        });    
 
         searchBox.add(logoutButton); // Agregamos a la derecha
         mainContainer.add(searchBox, BorderLayout.NORTH);
-
 
         // Panel de películas (grid)
         moviesPanel.setLayout(new GridLayout(0, 4, 20, 20));
@@ -185,21 +193,45 @@ public class MainFrame extends JFrame {
 
     private static class MovieCard extends JPanel{
         private Image img;
+        private final String trailerURL;
 
-        public MovieCard(String title, String genre, String url, ImageCache cache){
+        public MovieCard(String title, String genre, String imageURL, String trailerURL, ImageCache cache){
+            this.trailerURL = trailerURL;
+
             setLayout(new BorderLayout());
             setPreferredSize(new Dimension(150, 250));
             setOpaque(false);
 
-            JLabel lbl = new JLabel(title, SwingConstants.CENTER);
+            JLabel lbl = new JLabel("<html><u>" + title + "</u></html>", SwingConstants.CENTER);
             lbl.setForeground(Color.WHITE);
+            lbl.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            lbl.addMouseListener(new java.awt.event.MouseAdapter() {
+                @Override
+                public void mouseClicked(MouseEvent e) {
+                    openTrailer();
+                }
+            });
+
             add(lbl, BorderLayout.SOUTH);
 
             new Thread(() -> {
-                img = cache.loadImage(url);
+                img = cache.loadImage(imageURL);
                 repaint();
             }).start();
         }
+
+        private void openTrailer() {
+            try {
+                if (Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+                    Desktop.getDesktop().browse(new java.net.URI(trailerURL));
+                } else {
+                    JOptionPane.showMessageDialog(this, "Navegador no soportado.", "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            } catch (Exception e) {
+                JOptionPane.showMessageDialog(this, "No se pudo abrir el trailer.", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+
 
         @Override
         protected void paintComponent(Graphics g) {
