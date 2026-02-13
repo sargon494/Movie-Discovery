@@ -3,6 +3,7 @@ package com.tastedivekafka.kafka;
 import java.time.Duration;
 import java.util.List;
 import java.util.Properties;
+import java.util.function.Consumer;
 import java.util.logging.Logger;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -18,6 +19,7 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
  */
 public class KafkaResponseConsumerService {
     private static final Logger logger = Logger.getLogger(KafkaResponseConsumerService.class.getName());
+    private volatile boolean running = true;
 
     // Consumer Kafka para escuchar respuestas
     private final KafkaConsumer<String, String> consumer;
@@ -36,29 +38,48 @@ public class KafkaResponseConsumerService {
         this.consumer.subscribe(List.of("movie-responses"));
     }
 
-    /**
-     * Bucle que escucha continuamente el topic de respuestas.
-     *
-     * @param handler callback que procesa cada mensaje recibido
-     */
-    public void listen(ResponseHandler handler) {
-        System.out.println("👂 UI esperando respuestas en 'movie-responses'...");
-        try (consumer) {
-            while (true) {
-                // Poll con 1 segundo de espera para dar tiempo a la conexión inicial
-                ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(1000));
-
-                for (ConsumerRecord<String, String> record : records) {
-                    System.out.println("✨ UI RECIBIÓ: " + record.value());
-                    // Llamamos al handler que la UI haya definido
-                    handler.onResponse(record.value());
+   /**
+    * Inicia el hilo de escucha de Kafka. 
+    * Cada vez que se recibe una respuesta, se llama al callback proporcionado.
+    * @param callback Función que procesa la respuesta recibida (ej. actualizar UI)
+    */
+    public void listen(Consumer<String> callback) {
+        System.out.println("UI esperando respuestas en 'movie-responses'...");
+        new Thread(() -> {
+            try (KafkaConsumer<String, String> records = consumer) {
+                while(running) {
+                    ConsumerRecords<String, String> consumerRecords = records.poll(Duration.ofMillis(500));
+                    for (ConsumerRecord<String, String> record : consumerRecords) {
+                        logger.info(() -> "Respuesta recibida: " + record.value());
+                        callback.accept(record.value()); // Procesar respuesta con callback
+                    }
                 }
+            } catch (Exception e) {
+                logger.severe(() -> "Error en KafkaResponseConsumerService: " + e.getMessage());
+            } finally {
+                consumer.close();
+                logger.info("KafkaResponseConsumerService detenido.");
             }
-        } catch (Exception e) {
-            // Log de errores
-            logger.severe(() -> "Error listening to Kafka responses: " + e.getMessage());
+        }, "KafkaResponseListener").start();
+    }
+
+    /*
+        * Nota: shutdown() se llama desde MainFrame cuando se cierra la ventana.
+        * Esto evita que el hilo de escucha siga corriendo en segundo plano.
+    */
+
+    public void shutdown() {
+        running = false;
+        if (consumer != null) {
+            consumer.wakeup(); // Despertar el consumer para cerrar
         }
     }
+
+    /* 
+        * Nota: Este servicio se instancia UNA SOLA VEZ en App.java y se comparte con MainFrame.
+        * Esto evita problemas de múltiples consumers leyendo el mismo topic y permite centralizar
+        * la gestión de respuestas en un solo lugar.
+    */
 
     /**
      * Interfaz que define cómo manejar las respuestas recibidas.
