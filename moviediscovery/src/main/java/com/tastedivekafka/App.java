@@ -46,33 +46,29 @@ public class App {
         // 3) Lanzar la interfaz gráfica de login en el hilo de Swing
         SwingUtilities.invokeLater(() -> {
 
-            // Crear el LoginFrame y definir el listener de eventos de login
-            LoginFrame loginFrame = new LoginFrame(new LoginFrame.LoginListener() {
-
-                /**
-                 * Se ejecuta cuando el login es correcto
-                 */
+            // Método para abrir login
+            Runnable showLogin = new Runnable() {
                 @Override
-                public void onLoginSuccess() {
-                    // Abrir la ventana principal solo si el login fue exitoso
-                    MainFrame main = new MainFrame(responseConsumer);
-                    main.setVisible(true);
-                }
+                public void run() {
+                    LoginFrame loginFrame = new LoginFrame(new LoginFrame.LoginListener() {
+                        @Override
+                        public void onLoginSuccess() {
+                            // Abrir MainFrame solo si login OK
+                            MainFrame main = new MainFrame(responseConsumer);
+                            main.setVisible(true);
+                        }
 
-                /**
-                 * Se ejecuta cuando el login falla
-                 *
-                 * @param reason motivo del fallo de autenticación
-                 */
-                @Override
-                public void onLoginFailure(String reason) {
-                    // Mostrar mensaje de error al usuario
-                    JOptionPane.showMessageDialog(null, reason);
+                        @Override
+                        public void onLoginFailure(String reason) {
+                            JOptionPane.showMessageDialog(null, reason);
+                        }
+                    });
+                    loginFrame.setVisible(true);
                 }
-            });
+            };
 
-            // Mostrar la ventana de login
-            loginFrame.setVisible(true);
+            // Mostrar login por primera vez
+            showLogin.run();
         });
     }
 }

@@ -161,6 +161,15 @@ public class KafkaConsumerService {
                             String name = item.optString("name", "Desconocido");
                             String yID = item.optString("yID", "");
 
+                            String trailerUrl;
+                            
+                            if (!yID.isEmpty()) {
+                                trailerUrl = "https://www.youtube.com/watch?v=" + yID;
+                            } else {
+                                trailerUrl = "https://www.youtube.com/results?search_query="
+                                + URLEncoder.encode(name + " trailer", StandardCharsets.UTF_8);
+                            }
+
                             String imgUrl;
 
                             if (!yID.isEmpty()) {
@@ -175,8 +184,10 @@ public class KafkaConsumerService {
 
                             // Construir respuesta para Kafka
                             responseBuilder.append(name)
-                                    .append("||Película||")
-                                    .append(imgUrl);
+                                    .append("||")
+                                    .append(imgUrl)
+                                    .append("||")
+                                    .append(trailerUrl);
 
                             if (i < results.length() - 1) {
                                 responseBuilder.append(";;");
