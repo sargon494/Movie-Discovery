@@ -38,19 +38,10 @@ public class MainFrame extends JFrame {
 
         setTitle("MovieDiscovery - Usuario: " + AppSession.getCurrentUser());
         initUI();
-        bindConsumer(responseConsumer); // Conectar con consumer de respuestas
-    }
-
-    /**
-     * Conecta el consumer de Kafka para recibir recomendaciones
-     */
-    private void bindConsumer(KafkaResponseConsumerService responseConsumer) {
-        new Thread(() -> {
-            responseConsumer.listen(response -> {
-                // Actualizamos la UI en el hilo de Swing
-                SwingUtilities.invokeLater(() -> updateGallery(response));
-            });
-        }).start();
+        this.responseConsumer.listen(response ->
+            SwingUtilities.invokeLater(() ->
+        updateGallery(response))
+        );
     }
 
     /**
@@ -157,12 +148,28 @@ public class MainFrame extends JFrame {
             public void mouseExited(MouseEvent e) { logoutButton.setBackground(new Color(220, 50, 50)); }
         });
 
+        /* 
+            Nota: El botón de logout cierra la sesión, detiene el consumer de respuestas actual
+            y vuelve a mostrar la ventana de login. Esto asegura que no haya listeners activos
+            leyendo el topic de Kafka después de cerrar sesión.
+         */
+
         logoutButton.addActionListener(e -> {
             AppSession.logout(); // Limpiamos sesión
+            responseConsumer.shutdown(); // Detenemos consumer de respuestas anterior
+            MainFrame.this.dispose(); // Cerramos ventana principal
+
+            /*
+                Al abrir una nueva ventana de login, se crea un nuevo KafkaResponseConsumerService
+                para la nueva sesión. Esto evita que múltiples consumers estén leyendo el mismo topic
+                y permite que cada sesión tenga su propio listener de respuestas. 
+            */
+
             LoginFrame login = new LoginFrame(new LoginFrame.LoginListener() {
                 @Override
                 public void onLoginSuccess() {
-                    MainFrame main = new MainFrame(responseConsumer);
+                    KafkaResponseConsumerService newConsumer= new KafkaResponseConsumerService(); // Creamos nuevo consumer para la nueva sesión
+                    MainFrame main = new MainFrame(newConsumer);
                     main.setVisible(true);
                 }
 
@@ -190,6 +197,13 @@ public class MainFrame extends JFrame {
 
         bgPanel.add(mainContainer);
     }
+
+    /*
+        * Tarjeta individual de película. Muestra imagen, título y al hacer click abre trailer.
+         * La imagen se carga de forma asíncrona usando ImageCache para mejorar rendimiento.
+         * Al hacer click en el título, se intenta abrir el trailer en el navegador predeterminado.
+         * Si no se puede abrir el trailer, se muestra un mensaje de error.
+    */
 
     private static class MovieCard extends JPanel{
         private Image img;
