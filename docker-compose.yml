@@ -3,6 +3,10 @@ networks:
     driver: bridge
 
 services:
+
+  # ───────────────────────────────────────────────────────
+  # KAFKA — KRaft mode (sin Zookeeper)
+  # ───────────────────────────────────────────────────────
   kafka:
     image: apache/kafka:latest
     container_name: kafka
@@ -15,22 +19,19 @@ services:
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
-      
       KAFKA_LISTENERS: CONTROLLER://0.0.0.0:9093,INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9092
-      
       KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:9092
-      
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
-      
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
       KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      
       KAFKA_LOG_DIRS: /var/lib/kafka/data
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      CLUSTER_ID: "Mk3OEYBSD34fcwNTJENDM2Qk"
 
+  # ───────────────────────────────────────────────────────
+  # KAFKA UI — panel visual en http://localhost:7777
+  # ───────────────────────────────────────────────────────
   kafka-ui:
     image: provectuslabs/kafka-ui
     container_name: kafka-ui
@@ -43,9 +44,11 @@ services:
     restart: always
     environment:
       KAFKA_CLUSTERS_0_NAME: local-kraft
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
 
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092 
-
+  # ───────────────────────────────────────────────────────
+  # POSTGRESQL
+  # ───────────────────────────────────────────────────────
   postgres:
     image: postgres:16
     container_name: postgres_db
@@ -62,7 +65,9 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
 
-
+  # ───────────────────────────────────────────────────────
+  # PGADMIN — panel visual de BD en http://localhost:8080
+  # ───────────────────────────────────────────────────────
   pgadmin:
     image: dpage/pgadmin4
     container_name: pgadmin
@@ -78,6 +83,53 @@ services:
       - postgres
     volumes:
       - pgadmin_data:/var/lib/pgadmin
+
+  # ───────────────────────────────────────────────────────
+  # BACKEND — Jetty en 8090
+  # ───────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend       # usa backend/Dockerfile
+    container_name: backend
+    networks:
+      - local-kafka
+    ports:
+      - "8090:8090"
+    depends_on:
+      - postgres
+      - kafka
+    environment:
+      # Kafka — listener INTERNO (29092) dentro de la red Docker
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      # PostgreSQL
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      # TasteDive API key
+      TASTEDIVE_API_KEY: ${TASTEDIVE_API_KEY}
+
+  # ───────────────────────────────────────────────────────
+  # FRONTEND — Swing via WSLg
+  # ───────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend      # usa frontend/Dockerfile
+    container_name: frontend
+    networks:
+      - local-kafka
+    depends_on:
+      - backend
+    environment:
+      # BackendClient lee esta variable para saber dónde está el backend
+      BACKEND_URL: http://backend:8090
+      # WSLg captura DISPLAY y muestra la ventana Swing en Windows
+      DISPLAY: :0
+    volumes:
+      # Socket X11 necesario para WSLg
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    extra_hosts:
+      # Permite que el frontend se comunique con el backend usando "localhost" (útil para desarrollo)
+      - "host.docker.internal:host-gateway"
 
 volumes:
   postgres_data:
