@@ -11,7 +11,7 @@
 
 ## 📋 Descripción
 
-Movie Discovery es una aplicación de descubrimiento de películas que utiliza recomendaciones personalizadas basadas en la API de TasteDive. El sistema combina un backend robusto con Kafka para procesamiento asincrónico y un frontend de escritorio intuitivo.
+Movie Discovery es una aplicación de descubrimiento de películas que utiliza recomendaciones personalizadas basadas en la API de TasteDive. El sistema combina un backend robusto con Kafka para procesamiento asincrónico y un frontend de escritorio intuitivo, completamente dockerizado.
 
 ---
 
@@ -23,7 +23,7 @@ Movie Discovery es una aplicación de descubrimiento de películas que utiliza r
 | **Frontend** | Java Swing |
 | **Base de Datos** | PostgreSQL |
 | **Integración** | TasteDive API |
-| **Containerización** | Docker |
+| **Containerización** | Docker, Docker Compose |
 | **Mensajería** | Apache Kafka |
 
 ---
@@ -36,7 +36,7 @@ Movie Discovery es una aplicación de descubrimiento de películas que utiliza r
 - ⚡ **Procesamiento asincrónico** con Apache Kafka
 - 💾 **Caché de imágenes** para optimización de rendimiento
 - 🎨 **Interfaz gráfica intuitiva** con Java Swing
-- 🐳 **Despliegue containerizado** con Docker
+- 🐳 **Despliegue completamente containerizado** con Docker Compose
 
 ---
 
@@ -61,6 +61,7 @@ Movie-Discovery/
 │   └── pom.xml              # Dependencias Maven
 ├── db/
 │   └── init.sql             # Scripts de inicialización BD
+├── docker-compose.yml        # Configuración Docker Compose
 ├── .gitignore               # Configuración Git
 └── README.md                # Este archivo
 ```
@@ -71,11 +72,14 @@ Movie-Discovery/
 
 ### Requisitos Previos
 
+- **Docker y Docker Compose**
+- **Git**
+
+Opcionalmente, para desarrollo local:
 - **Java 17+**
 - **Maven 3.8+**
-- **MySQL 8.0+**
-- **Docker y Docker Compose** (opcional)
-- **Apache Kafka** (para desarrollo local)
+- **PostgreSQL 13+**
+- **Apache Kafka**
 
 ### Paso 1: Clonar el repositorio
 
@@ -84,69 +88,48 @@ git clone https://github.com/sargon494/Movie-Discovery.git
 cd Movie-Discovery
 ```
 
-### Paso 2: Configurar la base de datos
+### Paso 2: Configurar variables de entorno
 
-```bash
-psql -u root -p < db/init.sql
-```
+Crear archivo `.env`:
 
-### Paso 3: Configurar variables de entorno
-
-Crear archivo `backend/src/main/resources/config.properties`:
-
-```properties
+```env
 # Database
-db.url=jdbc:mysql://localhost:3306/movie_discovery
-db.user=root
-db.password=your_password
+DB_USER=postgres
+DB_PASSWORD=your_password
+DB_NAME=movie_discovery
 
 # Kafka
-kafka.bootstrap.servers=localhost:9092
-kafka.group.id=movie-discovery-group
+KAFKA_BOOTSTRAP_SERVERS=kafka:9092
 
 # API
-tastdive.api.key=your_api_key
+TASTDIVE_API_KEY=your_api_key
 ```
 
-### Paso 4: Compilar el proyecto
-
-```bash
-# Backend
-cd backend
-mvn clean package
-
-# Frontend
-cd ../frontend
-mvn clean package
-```
-
-### Paso 5: Ejecutar con Docker Compose (Recomendado)
+### Paso 3: Ejecutar con Docker Compose
 
 ```bash
 docker-compose up -d
 ```
 
+Backend disponible en: `http://localhost:8090`
+
 ---
 
 ## ⚙️ Configuración
 
-### Variables Requeridas
+### Variables de Entorno
 
 | Variable | Descripción | Tipo |
 |----------|-------------|------|
-| `db.url` | URL de conexión MySQL | String |
-| `db.user` | Usuario de base de datos | String |
-| `db.password` | Contraseña BD | String |
-| `kafka.bootstrap.servers` | Brokers de Kafka | String |
-| `tastdive.api.key` | API Key de TasteDive | String |
+| `DB_USER` | Usuario de PostgreSQL | String |
+| `DB_PASSWORD` | Contraseña de BD | String |
+| `DB_NAME` | Nombre de la base de datos | String |
+| `KAFKA_BOOTSTRAP_SERVERS` | Brokers de Kafka | String |
+| `TASTDIVE_API_KEY` | API Key de TasteDive | String |
 
 ### Base de Datos
 
-El schema se crea automáticamente al ejecutar:
-
-```bash
-psql < db/init.sql
-```
+El schema se crea automáticamente al levantar Docker Compose.
 
 Tablas principales:
 - `users` - Gestión de usuarios
@@ -157,23 +140,33 @@ Tablas principales:
 
 ## 💻 Uso
 
-### Ejecutar Backend
+### Con Docker Compose (Recomendado)
+
+```bash
+docker-compose up -d
+```
+
+Todos los servicios se ejecutarán automáticamente: PostgreSQL, Kafka, Backend y Frontend.
+
+### Desarrollo Local
+
+#### Backend
 
 ```bash
 cd backend
+mvn clean package
 mvn spring-boot:run
 ```
 
-Backend disponible en: `http://localhost:8090`
-
-### Ejecutar Frontend
+#### Frontend
 
 ```bash
 cd frontend
+mvn clean package
 mvn exec:java -Dexec.mainClass="com.tastedivekafka.FrontendApp"
 ```
 
-### Endpoints Principales
+### API Endpoints
 
 | Método | Endpoint | Descripción |
 |--------|----------|-------------|
@@ -197,7 +190,7 @@ mvn exec:java -Dexec.mainClass="com.tastedivekafka.FrontendApp"
 2. Request se envía al backend
 3. Backend procesa y publica evento en Kafka
 4. Consumer de Kafka procesa en background
-5. Resultados se almacenan en BD
+5. Resultados se almacenan en PostgreSQL
 6. Frontend recibe recomendaciones personalizadas
 
 ---
@@ -238,5 +231,5 @@ Este proyecto está bajo la licencia **MIT**. Ver archivo [LICENSE](LICENSE) par
 
 ---
 
-
 **Última actualización**: 2026 | **Versión**: 1.0.0-beta
+
