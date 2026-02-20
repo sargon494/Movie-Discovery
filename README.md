@@ -205,15 +205,13 @@ mvn exec:java -Dexec.mainClass="com.tastedivekafka.FrontendApp"
 
 ---
 
+
 ## 📸 Screenshots
 
-*Agregar capturas de pantalla de la aplicación*
-
-```markdown
 ![Login Screen](docs/screenshots/login.png)
 ![Search Results](docs/screenshots/search.png)
 ![Recommendations](docs/screenshots/recommendations.png)
-```
+
 
 ---
 
