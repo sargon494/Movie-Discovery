@@ -48,7 +48,7 @@ public class Config {
             return propKey;
         }
         throw new RuntimeException(
-            "TASTEDIVE_API_KEY no encontrada ni en variables de entorno ni en config.properties"
+            "TASTEDIVE_API_KEY no encontrada en variables de entorno."
         );
     }
 }

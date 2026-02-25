@@ -22,11 +22,14 @@ WORKDIR /app
 # Librerías necesarias para que Swing pueda dibujar ventanas
 # a través de WSLg / X11
 RUN apt-get update && apt-get install -y \
+    libgtk-3-0 \
+    libxxf86vm1 \
     libxext6 \
     libxrender1 \
     libxtst6 \
     libxi6 \
     libx11-6 \
+    libglib2.0-0 \
     fonts-dejavu \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*

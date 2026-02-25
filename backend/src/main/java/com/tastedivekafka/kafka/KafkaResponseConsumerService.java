@@ -26,7 +26,7 @@ public class KafkaResponseConsumerService {
 
     public KafkaResponseConsumerService() {
         Properties props = new Properties();
-        String kafkaServers = System.getenv().getOrDefault("KAFKA_BOOTSTRAP_SERVERS", "29092");
+        String kafkaServers = System.getenv().getOrDefault("KAFKA_BOOTSTRAP_SERVERS", "kafka:29092");
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaServers); // broker Kafka
         // Usar un ID aleatorio para que Kafka lo trate como cliente nuevo
         props.put(ConsumerConfig.GROUP_ID_CONFIG, "ui-client-" + System.currentTimeMillis());

@@ -50,6 +50,23 @@
             <version>1.4.14</version>
         </dependency>
 
+        <!-- ═══════════════════════════════════════════
+                JavaFX — Módulos necesarios para la interfaz gráfica
+                javafx-web para mostrar contenido web (como trailers de películas)
+                javafx-swing para integrar componentes Swing si es necesario
+        ═══════════════════════════════════════════ -->
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-web</artifactId>
+            <version>21</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-swing</artifactId>
+            <version>21</version>
+        </dependency>
+
     </dependencies>
 
     <build>

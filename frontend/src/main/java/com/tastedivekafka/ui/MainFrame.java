@@ -177,10 +177,12 @@ public class MainFrame extends JFrame {
     private static class MovieCard extends JPanel {
         private Image img;
         private final String trailerURL;
+        private String title;
 
         public MovieCard(String title, String genre, String imageURL,
                          String trailerURL, ImageCache cache) {
             this.trailerURL = trailerURL;
+            this.title = title;
             setLayout(new BorderLayout());
             setPreferredSize(new Dimension(150, 250));
             setOpaque(false);
@@ -200,14 +202,9 @@ public class MainFrame extends JFrame {
         }
 
         private void openTrailer() {
-            try {
-                if (Desktop.getDesktop().isSupported(Desktop.Action.BROWSE))
-                    Desktop.getDesktop().browse(new java.net.URI(trailerURL));
-                else
-                    JOptionPane.showMessageDialog(this, "Navegador no soportado.", "Error", JOptionPane.ERROR_MESSAGE);
-            } catch (Exception e) {
-                JOptionPane.showMessageDialog(this, "No se pudo abrir el trailer.", "Error", JOptionPane.ERROR_MESSAGE);
-            }
+            Frame parentFrame = (Frame) SwingUtilities.getWindowAncestor(this);
+            TrailerPlayer player = new TrailerPlayer(parentFrame, title, trailerURL);
+            player.setVisible(true);
         }
 
         @Override
