@@ -1,0 +1,13 @@
+com\tastedivekafka\kafka\KafkaConsumerService.class
+com\tastedivekafka\db\RecommendationDAO.class
+com\tastedivekafka\db\UserDAO.class
+com\tastedivekafka\BackendApp.class
+com\tastedivekafka\kafka\KafkaResponseConsumerService.class
+com\tastedivekafka\db\DBConnection.class
+com\tastedivekafka\db\MovieDAO.class
+com\tastedivekafka\api\AuthServlet.class
+com\tastedivekafka\kafka\KafkaResponseConsumerService$ResponseHandler.class
+com\tastedivekafka\api\TasteDiveClient.class
+com\tastedivekafka\kafka\KafkaProducerService.class
+com\tastedivekafka\config\Config.class
+com\tastedivekafka\api\SearchServlet.class

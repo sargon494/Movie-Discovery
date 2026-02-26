@@ -1,0 +1,12 @@
+C:\Users\sargo\Desktop\Movie-Discovery\backend\src\main\java\com\tastedivekafka\api\AuthServlet.java
+C:\Users\sargo\Desktop\Movie-Discovery\backend\src\main\java\com\tastedivekafka\api\SearchServlet.java
+C:\Users\sargo\Desktop\Movie-Discovery\backend\src\main\java\com\tastedivekafka\api\TasteDiveClient.java
+C:\Users\sargo\Desktop\Movie-Discovery\backend\src\main\java\com\tastedivekafka\BackendApp.java
+C:\Users\sargo\Desktop\Movie-Discovery\backend\src\main\java\com\tastedivekafka\config\Config.java
+C:\Users\sargo\Desktop\Movie-Discovery\backend\src\main\java\com\tastedivekafka\db\DBConnection.java
+C:\Users\sargo\Desktop\Movie-Discovery\backend\src\main\java\com\tastedivekafka\db\MovieDAO.java
+C:\Users\sargo\Desktop\Movie-Discovery\backend\src\main\java\com\tastedivekafka\db\RecommendationDAO.java
+C:\Users\sargo\Desktop\Movie-Discovery\backend\src\main\java\com\tastedivekafka\db\UserDAO.java
+C:\Users\sargo\Desktop\Movie-Discovery\backend\src\main\java\com\tastedivekafka\kafka\KafkaConsumerService.java
+C:\Users\sargo\Desktop\Movie-Discovery\backend\src\main\java\com\tastedivekafka\kafka\KafkaProducerService.java
+C:\Users\sargo\Desktop\Movie-Discovery\backend\src\main\java\com\tastedivekafka\kafka\KafkaResponseConsumerService.java
