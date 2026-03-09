@@ -1,8 +1,10 @@
 package com.tastedivekafka.kafka;
 
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerRecord;
 import java.util.Properties;
+
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.clients.producer.ProducerRecord;
 
 /**
  * Servicio Kafka encargado de enviar peticiones de películas.
@@ -15,18 +17,24 @@ public class KafkaProducerService {
     private final KafkaProducer<String, String> producer;
 
     public KafkaProducerService() {
-        Properties props = new Properties();
-        String kafkaServers = System.getenv()
-           .getOrDefault("KAFKA_BOOTSTRAP_SERVERS", "kafka:29092");
-        props.put("bootstrap.servers", kafkaServers);
-        props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
-        props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+        // Propiedades base (incluye SSL si las variables de entorno están definidas)
+        Properties props = KafkaConfig.baseProperties();
 
-        props.put("acks", "1");
-        props.put("request.timeout.ms", "30000");
-        props.put("delivery.timeout.ms", "45000");
+        // Propiedades específicas del producer
+        props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+            "org.apache.kafka.common.serialization.StringSerializer");
+        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+            "org.apache.kafka.common.serialization.StringSerializer");
+        props.put(ProducerConfig.ACKS_CONFIG,                    "1");
+        props.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG,      "30000");
+        props.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG,     "45000");
 
-        // Inicializamos producer
+        System.out.println("[DEBUG] bootstrap.servers = '" 
+            + props.getProperty("bootstrap.servers") + "'");
+        System.out.println("[DEBUG] security.protocol = '" 
+            + props.getProperty("security.protocol") + "'");
+
+
         producer = new KafkaProducer<>(props);
     }
 
@@ -47,8 +55,7 @@ public class KafkaProducerService {
                                 " | Partición: " + metadata.partition() + 
                                 " | Offset: " + metadata.offset());
             } else {
-                System.err.println("❌ Error al enviar mensaje: " + exception.getMessage());
-                exception.printStackTrace();
+                System.err.println("Error al enviar mensaje: " + exception.getMessage());
             }
         });
 

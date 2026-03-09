@@ -12,80 +12,66 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 
 /**
- * Servicio Kafka que escucha el topic de respuestas "movie-responses".
+ * Escucha el topic "movie-responses" y entrega las respuestas al callback.
  *
- * Se utiliza desde la UI para recibir recomendaciones de películas
- * enviadas por el backend.
+ * CORRECCIÓN: ahora usa KafkaConfig.baseProperties() en lugar de
+ * construir las propiedades manualmente. Antes no tenía SSL configurado,
+ * por lo que Aiven rechazaba silenciosamente la conexión y el frontend
+ * nunca recibía las respuestas aunque el backend las procesara bien.
  */
 public class KafkaResponseConsumerService {
-    private static final Logger logger = Logger.getLogger(KafkaResponseConsumerService.class.getName());
-    private volatile boolean running = true;
 
-    // Consumer Kafka para escuchar respuestas
+    private static final Logger logger =
+        Logger.getLogger(KafkaResponseConsumerService.class.getName());
+
+    private volatile boolean running = true;
     private final KafkaConsumer<String, String> consumer;
 
     public KafkaResponseConsumerService() {
-        Properties props = new Properties();
-        String kafkaServers = System.getenv().getOrDefault("KAFKA_BOOTSTRAP_SERVERS", "kafka:29092");
-        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaServers); // broker Kafka
-        // Usar un ID aleatorio para que Kafka lo trate como cliente nuevo
-        props.put(ConsumerConfig.GROUP_ID_CONFIG, "ui-client-" + System.currentTimeMillis());
-        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest"); // leer solo nuevos mensajes
-        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
-        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
+        // ← KafkaConfig incluye SSL si las variables de entorno están definidas
+        Properties props = KafkaConfig.baseProperties();
 
-        // Creamos el consumer y nos suscribimos al topic de respuestas
+        // Group ID único por instancia para leer siempre desde "latest"
+        // sin compartir offset con otros consumers del mismo grupo
+        props.put(ConsumerConfig.GROUP_ID_CONFIG,
+            "ui-client-" + System.currentTimeMillis());
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,     "latest");
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
+            "org.apache.kafka.common.serialization.StringDeserializer");
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+            "org.apache.kafka.common.serialization.StringDeserializer");
+
         this.consumer = new KafkaConsumer<>(props);
         this.consumer.subscribe(List.of("movie-responses"));
     }
 
-   /**
-    * Inicia el hilo de escucha de Kafka. 
-    * Cada vez que se recibe una respuesta, se llama al callback proporcionado.
-    * @param callback Función que procesa la respuesta recibida (ej. actualizar UI)
-    */
+    /**
+     * Inicia el hilo de escucha en segundo plano.
+     * Cada respuesta recibida se pasa al callback.
+     */
     public void listen(Consumer<String> callback) {
         System.out.println("UI esperando respuestas en 'movie-responses'...");
         new Thread(() -> {
-            try (KafkaConsumer<String, String> records = consumer) {
-                while(running) {
-                    ConsumerRecords<String, String> consumerRecords = records.poll(Duration.ofMillis(500));
-                    for (ConsumerRecord<String, String> record : consumerRecords) {
+            try (KafkaConsumer<String, String> c = consumer) {
+                while (running) {
+                    ConsumerRecords<String, String> records =
+                        c.poll(Duration.ofMillis(500));
+                    for (ConsumerRecord<String, String> record : records) {
                         logger.info(() -> "Respuesta recibida: " + record.value());
-                        callback.accept(record.value()); // Procesar respuesta con callback
+                        callback.accept(record.value());
                     }
                 }
             } catch (Exception e) {
-                logger.severe(() -> "Error en KafkaResponseConsumerService: " + e.getMessage());
+                logger.severe(() -> "Error en KafkaResponseConsumerService: "
+                    + e.getMessage());
             } finally {
-                consumer.close();
                 logger.info("KafkaResponseConsumerService detenido.");
             }
         }, "KafkaResponseListener").start();
     }
 
-    /*
-        * shutdown() se llama desde MainFrame cuando se cierra la ventana.
-        * Esto evita que el hilo de escucha siga corriendo en segundo plano.
-    */
-
     public void shutdown() {
         running = false;
-        if (consumer != null) {
-            consumer.wakeup(); // Despertar el consumer para cerrar
-        }
-    }
-
-    /* 
-        * Este servicio se instancia UNA SOLA VEZ en App.java y se comparte con MainFrame.
-        * Esto evita problemas de múltiples consumers leyendo el mismo topic y permite centralizar
-        * la gestión de respuestas en un solo lugar.
-    */
-
-    /**
-     * Interfaz que define cómo manejar las respuestas recibidas.
-     */
-    public interface ResponseHandler {
-        void onResponse(String response);
+        if (consumer != null) consumer.wakeup();
     }
 }
