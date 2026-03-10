@@ -19,7 +19,7 @@ public class BackendClient {
 
     // Reads BACKEND_URL env var; falls back to localhost for local dev
     private static final String BASE_URL = System.getenv()
-            .getOrDefault("BACKEND_URL", "http://localhost:8090");
+            .getOrDefault("BACKEND_URL", "https://movie-discovery-nf4s.onrender.com");
 
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(5))
