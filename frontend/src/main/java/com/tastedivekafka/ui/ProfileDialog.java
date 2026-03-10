@@ -109,14 +109,14 @@ public class ProfileDialog extends JDialog {
         body.setBackground(BG_PANEL);
 
         // Navegación lateral de pestañas
-        String[] tabNames = {"Stats", "Visto", "Historial", "Ajustes"};
+        String[] tabNames = {"Stats", "Favoritos", "Historial", "Ajustes"};
         JPanel nav = buildNav(tabNames);
 
         // Panel de contenido
         JPanel content = new JPanel(new CardLayout());
         content.setBackground(BG_PANEL);
         content.add(buildStatsPanel(),    "Stats");
-        content.add(buildFavoritesPanel(), "Visto");
+        content.add(buildFavoritesPanel(), "Favoritos");
         content.add(buildHistoryPanel(),   "Historial");
         content.add(buildSettingsPanel(),  "Ajustes");
 
@@ -188,7 +188,7 @@ public class ProfileDialog extends JDialog {
                     panel.add(Box.createRigidArea(new Dimension(0, 8)));
                     panel.add(statRow("Busquedas totales", p.length > 2 ? p[2] : "0"));
                     panel.add(Box.createRigidArea(new Dimension(0, 8)));
-                    panel.add(statRow("Peliculas vistas", p.length > 3 ? p[3] : "0"));
+                    panel.add(statRow("Peliculas favoritas", p.length > 3 ? p[3] : "0"));
                     panel.revalidate(); panel.repaint();
                 } catch (Exception e) {
                     loading.setText("Error: " + e.getMessage());
@@ -220,7 +220,7 @@ public class ProfileDialog extends JDialog {
         return row;
     }
 
-    // ─── Películas vistas ───────────────────────────────────────────────────────────
+    // ─── Favoritos ───────────────────────────────────────────────────────────
 
     private JScrollPane buildFavoritesPanel() {
         JPanel panel = new JPanel();
@@ -228,10 +228,10 @@ public class ProfileDialog extends JDialog {
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setBorder(new EmptyBorder(24, 24, 24, 24));
 
-        panel.add(sectionTitle("Peliculas vistas"));
+        panel.add(sectionTitle("Peliculas favoritas"));
         panel.add(Box.createRigidArea(new Dimension(0, 16)));
 
-        JLabel loading = dimLabel("Cargando películas...");
+        JLabel loading = dimLabel("Cargando favoritos...");
         panel.add(loading);
 
         new SwingWorker<String, Void>() {
@@ -243,7 +243,7 @@ public class ProfileDialog extends JDialog {
                     panel.remove(loading);
                     String raw = get();
                     if (raw == null || raw.isBlank()) {
-                        panel.add(dimLabel("No tienes peliculas vistas todavia."));
+                        panel.add(dimLabel("No tienes peliculas favoritas todavia."));
                     } else {
                         for (String entry : raw.split(";;")) {
                             String[] p = entry.split("\\|\\|");
@@ -501,7 +501,7 @@ public class ProfileDialog extends JDialog {
                     BackendClient.deleteAccount(); return null;
                 }
                 @Override protected void done() {
-                    AppSession.logout(); dispose(); FrontendApp.showLogin();
+                    AppSession.logout(); dispose(); Window owner = getOwner(); if (owner instanceof MainFrame mf) { mf.dispose(); } FrontendApp.showLogin();
                 }
             }.execute();
         });
@@ -602,7 +602,6 @@ public class ProfileDialog extends JDialog {
         scroll.getViewport().setBackground(BG_PANEL);
         scroll.setBorder(BorderFactory.createEmptyBorder());
         scroll.getVerticalScrollBar().setUnitIncrement(12);
-        DarkScrollBarUI.apply(scroll);
         return scroll;
     }
 
