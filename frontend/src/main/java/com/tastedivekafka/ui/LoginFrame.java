@@ -1,239 +1,317 @@
 package com.tastedivekafka.ui;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.*;
+import java.awt.geom.RoundRectangle2D;
+import java.awt.image.BufferedImage;
+import java.awt.image.ConvolveOp;
+import java.awt.image.Kernel;
 import java.util.Objects;
 
-/**
- * LoginFrame es la ventana de autenticación de usuario. Permite a los usuarios
- * iniciar sesión o registrarse. Se comunica con el backend a través de BackendClient
- * para validar credenciales y crear nuevas cuentas.
- * Responsabilidades:
- * - Mostrar campos de usuario y contraseña con placeholders
- * - Validar que los campos no estén vacíos antes de enviar la solicitud
- * - Enviar solicitudes de login/registro al backend usando BackendClient
- * - Notificar al FrontendApp sobre el resultado del login a través de LoginListener
- * - Permitir arrastrar la ventana y cerrarla con un botón personalizado
- * El LoginFrame no se comunica directamente con Kafka. Toda la comunicación con el backend
- * se realiza a través de BackendClient (HTTP en el puerto 8090). El LoginFrame es independiente del MainFrame y se cierra al iniciar sesión correctamente.
- * El MainFrame se encarga de mostrar la interfaz principal de la aplicación y de escuchar las respuestas de Kafka. 
- * El LoginFrame solo se ocupa del proceso de autenticación.
- * El LoginListener es una interfaz que permite al LoginFrame notificar al FrontendApp sobre el resultado del login. 
- * Si el login es exitoso, se pasa el nombre de usuario al FrontendApp para que pueda almacenarlo en la sesión. Si el login falla, se muestra un mensaje de error.
- * El proceso de registro también se maneja dentro del LoginFrame. 
- * Al hacer clic en el botón de registro, se valida que los campos no estén vacíos y que la contraseña tenga al menos 8 caracteres. 
- * Luego se envía una solicitud de registro al backend usando BackendClient. 
- * Si el registro es exitoso, se muestra un mensaje de confirmación. 
- * Si el usuario ya existe o hay un error de conexión, se muestra un mensaje de error.
- */
 public class LoginFrame extends JFrame {
 
-    private static final int WIDTH = 760;
-    private static final int HEIGHT = 570;
-    private static final String USER_PLACEHOLDER = "Ingrese su nombre de usuario";
-    private static final String PASS_PLACEHOLDER = "********";
+    private static final int WIDTH  = 780;
+    private static final int HEIGHT = 580;
+
+    private static final Color BG        = new Color(12, 12, 20);
+    private static final Color GLASS_BG  = new Color(22, 22, 34, 220);
+    private static final Color ACCENT    = new Color(99, 155, 255);
+    private static final Color TEXT      = new Color(225, 225, 230);
+    private static final Color TEXT_DIM  = new Color(110, 110, 140);
+    private static final Color DANGER    = new Color(220, 60, 60);
+    private static final Color INPUT_BG  = new Color(30, 30, 46);
+    private static final Color INPUT_BD  = new Color(55, 55, 80);
 
     private int xMouse, yMouse;
+    private JTextField     userField;
+    private JPasswordField passField;
+    private JLabel         errorLabel;
 
-    // ── Listener ──
     public interface LoginListener {
-        void onLoginSuccess(String username); // ← username passed back to FrontendApp
+        void onLoginSuccess(String username);
         void onLoginFailure(String reason);
     }
 
     private final LoginListener loginListener;
-    private JTextField userField;
-    private JPasswordField passwordField;
 
     public LoginFrame(LoginListener listener) {
         this.loginListener = listener;
         initUI();
     }
 
-    /* ===================== UI ===================== */
     private void initUI() {
         setUndecorated(true);
         setSize(WIDTH, HEIGHT);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
+        setShape(new RoundRectangle2D.Double(0, 0, WIDTH, HEIGHT, 14, 14));
 
-        BackgroundPanel background = new BackgroundPanel(
-                new ImageIcon(Objects.requireNonNull(
-                        getClass().getResource("/photo-1614850523011-8f49ffc73908.jpeg")
-                ))
-        );
-        background.setLayout(new BorderLayout());
-        setContentPane(background);
+        // Fondo con imagen desenfocada
+        Image blurred = loadBlurredBg();
+        JPanel root = new JPanel(null) {
+            @Override protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g.create();
+                if (blurred != null) g2.drawImage(blurred, 0, 0, getWidth(), getHeight(), null);
+                else { g2.setColor(BG); g2.fillRect(0, 0, getWidth(), getHeight()); }
+                g2.setColor(new Color(5, 5, 15, 200));
+                g2.fillRect(0, 0, getWidth(), getHeight());
+                g2.dispose();
+            }
+        };
+        root.setBackground(BG);
+        setContentPane(root);
 
-        JPanel topBar = new JPanel(null);
-        topBar.setPreferredSize(new Dimension(WIDTH, 25));
-        topBar.setBackground(new Color(230, 230, 230));
-
-        JLabel exitBtn = new JLabel("X", SwingConstants.CENTER);
-        exitBtn.setBounds(WIDTH - 25, 0, 25, 25);
-        exitBtn.setOpaque(true);
-        exitBtn.setBackground(Color.GRAY);
-        exitBtn.setForeground(Color.WHITE);
-        exitBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        exitBtn.addMouseListener(new MouseAdapter() {
-            public void mouseClicked(MouseEvent e) { System.exit(0); }
+        // Barra superior
+        JPanel bar = new JPanel(null);
+        bar.setOpaque(false);
+        bar.setBounds(0, 0, WIDTH, 36);
+        JLabel title = new JLabel("MOVIE DISCOVERY");
+        title.setBounds(16, 0, 200, 36);
+        title.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        title.setForeground(new Color(99, 155, 255, 160));
+        bar.add(title);
+        MainFrame.CloseButton btnClose = new MainFrame.CloseButton();
+        btnClose.setBounds(WIDTH - 46, 0, 46, 36);
+        btnClose.addActionListener(e -> System.exit(0));
+        bar.add(btnClose);
+        bar.addMouseListener(new MouseAdapter() {
+            @Override public void mousePressed(MouseEvent e) { xMouse = e.getX(); yMouse = e.getY(); }
         });
-
-        topBar.addMouseListener(new MouseAdapter() {
-            public void mousePressed(MouseEvent e) { xMouse = e.getX(); yMouse = e.getY(); }
-        });
-        topBar.addMouseMotionListener(new MouseMotionAdapter() {
-            public void mouseDragged(MouseEvent e) {
+        bar.addMouseMotionListener(new MouseMotionAdapter() {
+            @Override public void mouseDragged(MouseEvent e) {
                 setLocation(e.getXOnScreen() - xMouse, e.getYOnScreen() - yMouse);
             }
         });
-        topBar.add(exitBtn);
-        background.add(topBar, BorderLayout.NORTH);
+        root.add(bar);
 
-        JPanel centerPanel = new JPanel(new GridBagLayout());
-        centerPanel.setOpaque(false);
-        background.add(centerPanel, BorderLayout.CENTER);
+        // Panel glass con BoxLayout
+        JPanel glass = new JPanel() {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(GLASS_BG);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 16, 16);
+                g2.setColor(new Color(65, 65, 95, 140));
+                g2.setStroke(new BasicStroke(1f));
+                g2.drawRoundRect(0, 0, getWidth()-1, getHeight()-1, 16, 16);
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        glass.setOpaque(false);
+        glass.setLayout(new BoxLayout(glass, BoxLayout.Y_AXIS));
+        glass.setBorder(new EmptyBorder(24, 36, 24, 36));
 
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(10, 10, 10, 10);
-        gbc.fill = GridBagConstraints.HORIZONTAL;
+        int gw = 360, gh = 470;
+        glass.setBounds((WIDTH - gw) / 2, (HEIGHT - gh) / 2, gw, gh);
+        root.add(glass);
 
-        JLabel logo = new JLabel(new ImageIcon(
-                Objects.requireNonNull(getClass().getResource("/logo.png"))
-        ));
-        logo.setHorizontalAlignment(SwingConstants.CENTER);
-        gbc.gridx = 0; gbc.gridy = 0; gbc.gridwidth = 2;
-        gbc.insets = new Insets(50, 0, 30, 0);
-        centerPanel.add(logo, gbc);
+        // ── Logo ──
+        JLabel logo;
+        try {
+            ImageIcon icon = new ImageIcon(Objects.requireNonNull(getClass().getResource("/logo.png")));
+            Image img = icon.getImage().getScaledInstance(90, 90, Image.SCALE_SMOOTH);
+            logo = new JLabel(new ImageIcon(img));
+        } catch (Exception e) {
+            logo = new JLabel("MOVIE DISCOVERY");
+            logo.setFont(new Font("Segoe UI", Font.BOLD, 16));
+            logo.setForeground(ACCENT);
+        }
+        logo.setAlignmentX(Component.CENTER_ALIGNMENT);
+        glass.add(logo);
+        glass.add(Box.createRigidArea(new Dimension(0, 8)));
 
-        gbc.gridwidth = 1;
-        gbc.insets = new Insets(5, 50, 5, 50);
+        // ── Subtítulo ──
+        JLabel sub = new JLabel("Inicia sesion para continuar");
+        sub.setFont(new Font("Segoe UI", Font.PLAIN, 20));
+        sub.setForeground(TEXT_DIM);
+        sub.setAlignmentX(Component.CENTER_ALIGNMENT);
+        glass.add(sub);
+        glass.add(Box.createRigidArea(new Dimension(0, 20)));
 
-        JLabel userLabel = new JLabel("USUARIO");
-        userLabel.setForeground(Color.WHITE);
-        gbc.gridy = 1; centerPanel.add(userLabel, gbc);
-
+        // ── Campo usuario ──
         userField = new JTextField();
-        addPlaceholder(userField, USER_PLACEHOLDER);
-        gbc.gridy = 2; centerPanel.add(userField, gbc);
+        styleField(userField, "Nombre de usuario");
+        glass.add(userField);
+        glass.add(Box.createRigidArea(new Dimension(0, 14)));
 
-        JLabel passLabel = new JLabel("CONTRASEÑA");
-        passLabel.setForeground(Color.WHITE);
-        gbc.gridy = 3; centerPanel.add(passLabel, gbc);
+        // ── Campo contraseña ──
+        passField = new JPasswordField();
+        styleField(passField, "Contrasena");
+        glass.add(passField);
+        glass.add(Box.createRigidArea(new Dimension(0, 10)));
 
-        passwordField = new JPasswordField();
-        addPlaceholder(passwordField, PASS_PLACEHOLDER);
-        gbc.gridy = 4; centerPanel.add(passwordField, gbc);
+        // ── Error ──
+        errorLabel = new JLabel(" ");
+        errorLabel.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        errorLabel.setForeground(DANGER);
+        errorLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        glass.add(errorLabel);
+        glass.add(Box.createRigidArea(new Dimension(0, 8)));
 
-        JButton loginButton = new JButton("ENTRAR");
-        styleButton(loginButton);
-        gbc.gridy = 5; gbc.insets = new Insets(25, 200, 25, 200);
-        centerPanel.add(loginButton, gbc);
-        loginButton.addActionListener(e -> login());
+        // ── Botón entrar ──
+        glass.add(actionButton("ENTRAR", ACCENT, e -> login()));
+        glass.add(Box.createRigidArea(new Dimension(0, 14)));
 
-        JButton registerButton = new JButton("REGISTRATE AQUÍ");
-        styleButton(registerButton);
-        gbc.gridy = 6; gbc.insets = new Insets(5, 200, 25, 200);
-        centerPanel.add(registerButton, gbc);
-        registerButton.addActionListener(e -> signup());
+        // ── Separador ──
+        JLabel orLbl = new JLabel("No tienes cuenta?");
+        orLbl.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        orLbl.setForeground(TEXT_DIM);
+        orLbl.setAlignmentX(Component.CENTER_ALIGNMENT);
+        glass.add(orLbl);
+        glass.add(Box.createRigidArea(new Dimension(0, 8)));
+
+        // ── Botón registro ──
+        glass.add(outlineButton("REGISTRATE", e -> signup()));
+
+        // Enter
+        KeyAdapter enter = new KeyAdapter() {
+            @Override public void keyPressed(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_ENTER) login();
+            }
+        };
+        userField.addKeyListener(enter);
+        passField.addKeyListener(enter);
     }
 
-    /* ===================== LÓGICA DE LOGIN ============= */
+    // ─── Lógica ──────────────────────────────────────────────────────────────
+
     private void login() {
         String user = userField.getText().trim();
-        String pass = new String(passwordField.getPassword()).trim();
-
-        if (user.isEmpty() || user.equals(USER_PLACEHOLDER)
-                || pass.isEmpty() || pass.equals(PASS_PLACEHOLDER)) {
-            JOptionPane.showMessageDialog(this,
-                    "Introduce usuario y contraseña.", "ERROR", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
+        String pass = new String(passField.getPassword()).trim();
+        if (user.isEmpty() || pass.isEmpty()) { showError("Introduce usuario y contrasena"); return; }
         try {
             boolean ok = BackendClient.login(user, pass);
-            if (ok) {
-                if (loginListener != null) loginListener.onLoginSuccess(user); // ← passes username
-                dispose();
-            } else {
-                if (loginListener != null)
-                    loginListener.onLoginFailure("Usuario o contraseña incorrectos.");
-            }
-        } catch (Exception ex) {
-            if (loginListener != null)
-                loginListener.onLoginFailure("Error al conectar con el servidor.");
-        }
+            if (ok) { if (loginListener != null) loginListener.onLoginSuccess(user); dispose(); }
+            else    { showError("Usuario o contrasena incorrectos"); if (loginListener != null) loginListener.onLoginFailure("Credenciales incorrectas"); }
+        } catch (Exception ex) { showError("Error al conectar con el servidor"); }
     }
 
-    /* ===================== LÓGICA DE REGISTRO — usa BackendClient ========== */
     public void signup() {
         String user = userField.getText().trim();
-        String pass = new String(passwordField.getPassword()).trim();
-
-        if (user.isEmpty() || user.equals(USER_PLACEHOLDER)
-                || pass.isEmpty() || pass.equals(PASS_PLACEHOLDER)) {
-            JOptionPane.showMessageDialog(this,
-                    "Introduce usuario y contraseña deseados", "ERROR", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-        if (pass.length() < 8) {
-            JOptionPane.showMessageDialog(this,
-                    "La contraseña debe tener al menos 8 carácteres", "ERROR", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
+        String pass = new String(passField.getPassword()).trim();
+        if (user.isEmpty() || pass.isEmpty()) { showError("Introduce usuario y contrasena"); return; }
+        if (pass.length() < 8) { showError("La contrasena debe tener al menos 8 caracteres"); return; }
         try {
             boolean ok = BackendClient.register(user, pass);
-            if (ok) {
-                JOptionPane.showMessageDialog(this,
-                        "Usuario registrado correctamente", "OK", JOptionPane.INFORMATION_MESSAGE);
-                passwordField.setText("");
-            } else {
-                JOptionPane.showMessageDialog(this,
-                        "El usuario ya existe", "ERROR", JOptionPane.ERROR_MESSAGE);
-            }
-        } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this,
-                    "Error al conectar con el servidor.", "ERROR", JOptionPane.ERROR_MESSAGE);
+            if (ok) { errorLabel.setForeground(new Color(60, 200, 100)); errorLabel.setText("Usuario registrado correctamente"); passField.setText(""); }
+            else    { showError("El usuario ya existe"); }
+        } catch (Exception ex) { showError("Error al conectar con el servidor"); }
+    }
+
+    private void showError(String msg) { errorLabel.setForeground(DANGER); errorLabel.setText(msg); }
+
+    // ─── Helpers UI ──────────────────────────────────────────────────────────
+
+    private void styleField(JTextField field, String placeholder) {
+        field.setBackground(INPUT_BG);
+        field.setForeground(TEXT);
+        field.setCaretColor(ACCENT);
+        field.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        field.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(INPUT_BD, 1),
+            BorderFactory.createEmptyBorder(8, 12, 8, 12)));
+        field.setMaximumSize(new Dimension(Integer.MAX_VALUE, 42));
+        field.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        // Placeholder via FocusListener — forma más simple y fiable
+        field.setForeground(TEXT_DIM);
+        if (field instanceof JPasswordField pf) {
+            pf.setEchoChar((char) 0);
+            pf.setText(placeholder);
+            pf.addFocusListener(new FocusAdapter() {
+                @Override public void focusGained(FocusEvent e) {
+                    if (String.valueOf(pf.getPassword()).equals(placeholder)) {
+                        pf.setText(""); pf.setForeground(TEXT); pf.setEchoChar('*');
+                    }
+                }
+                @Override public void focusLost(FocusEvent e) {
+                    if (pf.getPassword().length == 0) {
+                        pf.setEchoChar((char) 0); pf.setText(placeholder); pf.setForeground(TEXT_DIM);
+                    }
+                }
+            });
+        } else {
+            field.setText(placeholder);
+            field.addFocusListener(new FocusAdapter() {
+                @Override public void focusGained(FocusEvent e) {
+                    if (field.getText().equals(placeholder)) { field.setText(""); field.setForeground(TEXT); }
+                }
+                @Override public void focusLost(FocusEvent e) {
+                    if (field.getText().isEmpty()) { field.setText(placeholder); field.setForeground(TEXT_DIM); }
+                }
+            });
         }
     }
 
-    /* ===================== UTIL ================================= */
-    private void addPlaceholder(JTextField field, String placeholder) {
-        field.setForeground(Color.GRAY);
-        field.setText(placeholder);
-        field.addFocusListener(new FocusAdapter() {
-            public void focusGained(FocusEvent e) {
-                if (field.getText().equals(placeholder)) {
-                    field.setText(""); field.setForeground(Color.BLACK);
-                }
+    private JButton actionButton(String text, Color bg, ActionListener action) {
+        JButton btn = new JButton(text) {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(getModel().isRollover() ? bg.brighter() : bg);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                g2.setColor(Color.WHITE);
+                g2.setFont(new Font("Segoe UI", Font.BOLD, 13));
+                FontMetrics fm = g2.getFontMetrics();
+                g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+                g2.drawString(text, (getWidth()-fm.stringWidth(text))/2, (getHeight()+fm.getAscent()-fm.getDescent())/2);
+                g2.dispose();
             }
-            public void focusLost(FocusEvent e) {
-                if (field.getText().isEmpty()) {
-                    field.setText(placeholder); field.setForeground(Color.GRAY);
-                }
-            }
-        });
+        };
+        btn.setOpaque(false); btn.setContentAreaFilled(false); btn.setBorderPainted(false);
+        btn.setFocusPainted(false); btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 42));
+        btn.setAlignmentX(Component.CENTER_ALIGNMENT);
+        btn.addActionListener(action);
+        return btn;
     }
 
-    private void styleButton(JButton button) {
-        button.setBackground(new Color(70, 130, 180));
-        button.setForeground(Color.WHITE);
-        button.setFocusPainted(false);
-        button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        button.addMouseListener(new MouseAdapter() {
-            public void mouseEntered(MouseEvent e) { button.setBackground(new Color(100, 160, 210)); }
-            public void mouseExited(MouseEvent e)  { button.setBackground(new Color(70, 130, 180)); }
-        });
+    private JButton outlineButton(String text, ActionListener action) {
+        JButton btn = new JButton(text) {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                if (getModel().isRollover()) { g2.setColor(new Color(99,155,255,20)); g2.fillRoundRect(0,0,getWidth(),getHeight(),8,8); }
+                g2.setColor(getModel().isRollover() ? new Color(99,155,255,180) : new Color(60,60,85,200));
+                g2.setStroke(new BasicStroke(1f));
+                g2.drawRoundRect(0,0,getWidth()-1,getHeight()-1,8,8);
+                g2.setColor(Color.WHITE);
+                g2.setFont(new Font("Segoe UI", Font.BOLD, 13));
+                FontMetrics fm = g2.getFontMetrics();
+                g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+                g2.drawString(text, (getWidth()-fm.stringWidth(text))/2, (getHeight()+fm.getAscent()-fm.getDescent())/2);
+                g2.dispose();
+            }
+        };
+        btn.setOpaque(false); btn.setContentAreaFilled(false); btn.setBorderPainted(false);
+        btn.setFocusPainted(false); btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 42));
+        btn.setAlignmentX(Component.CENTER_ALIGNMENT);
+        btn.addActionListener(action);
+        return btn;
     }
 
-    static class BackgroundPanel extends JPanel {
-        private final Image bgImage;
-        public BackgroundPanel(ImageIcon icon) { this.bgImage = icon.getImage(); }
-        @Override protected void paintComponent(Graphics g) {
-            super.paintComponent(g);
-            g.drawImage(bgImage, 0, 0, getWidth(), getHeight(), this);
-        }
+    private Image loadBlurredBg() {
+        try {
+            ImageIcon raw = new ImageIcon(Objects.requireNonNull(
+                getClass().getResource("/photo-1614850523011-8f49ffc73908.jpeg")));
+            BufferedImage scaled = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g2 = scaled.createGraphics();
+            g2.drawImage(raw.getImage(), 0, 0, WIDTH, HEIGHT, null);
+            g2.dispose();
+            int k = 9; float sigma = 3f, sum = 0;
+            float[] data = new float[k*k];
+            for (int y=0;y<k;y++) for (int x=0;x<k;x++) {
+                float dx=x-k/2, dy=y-k/2;
+                data[y*k+x]=(float)Math.exp(-(dx*dx+dy*dy)/(2*sigma*sigma));
+                sum+=data[y*k+x];
+            }
+            for (int i=0;i<data.length;i++) data[i]/=sum;
+            return new ConvolveOp(new Kernel(k,k,data), ConvolveOp.EDGE_NO_OP, null).filter(scaled, null);
+        } catch (Exception e) { return null; }
     }
 }

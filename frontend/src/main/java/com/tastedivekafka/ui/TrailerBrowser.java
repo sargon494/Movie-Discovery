@@ -1,51 +1,36 @@
 package com.tastedivekafka.ui;
 
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Cursor;
-import java.awt.Desktop;
-import java.awt.Dimension;
-import java.awt.FlowLayout;
-import java.awt.Font;
-import java.awt.GridBagLayout;
-import java.awt.Window;
-import java.awt.event.KeyEvent;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
-import java.io.File;
-import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.concurrent.ExecutionException;
-
-import javax.swing.BorderFactory;
-import javax.swing.JButton;
-import javax.swing.JComponent;
-import javax.swing.JDialog;
-import javax.swing.JLabel;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.KeyStroke;
-import javax.swing.SwingUtilities;
-import javax.swing.SwingWorker;
-
+import me.friwi.jcefmaven.CefAppBuilder;
+import me.friwi.jcefmaven.MavenCefAppHandlerAdapter;
+import me.friwi.jcefmaven.impl.progress.ConsoleProgressHandler;
 import org.cef.CefApp;
 import org.cef.CefClient;
 import org.cef.browser.CefBrowser;
 import org.cef.handler.CefDisplayHandlerAdapter;
 import org.cef.handler.CefLoadHandlerAdapter;
 
-import me.friwi.jcefmaven.CefAppBuilder;
-import me.friwi.jcefmaven.MavenCefAppHandlerAdapter;
-import me.friwi.jcefmaven.impl.progress.ConsoleProgressHandler;
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.*;
+import java.awt.geom.RoundRectangle2D;
+import java.io.File;
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.concurrent.ExecutionException;
 
 public class TrailerBrowser extends JDialog {
 
-    private static final int DIALOG_WIDTH  = 1024;
-    private static final int DIALOG_HEIGHT = 620;
-    private static final int TOOLBAR_H     = 42;
+    private static final int W = 1024, H = 620, BAR_H = 46;
 
-    // Singletons: una sola instancia de CefApp/CefClient por JVM
+    private static final Color BG       = new Color(10, 10, 14);
+    private static final Color BAR_BG   = new Color(18, 18, 24);
+    private static final Color BAR_LINE = new Color(38, 38, 52);
+    private static final Color ACCENT   = new Color(99, 155, 255);
+    private static final Color DANGER   = new Color(200, 50, 50);
+    private static final Color TEXT     = new Color(210, 210, 218);
+    private static final Color TEXT_DIM = new Color(100, 100, 120);
+
     private static volatile CefApp    cefApp;
     private static volatile CefClient cefClient;
     private static volatile boolean   cefReady = false;
@@ -53,186 +38,231 @@ public class TrailerBrowser extends JDialog {
     private volatile CefBrowser browser;
 
     public TrailerBrowser(Window owner, String movieTitle, String trailerUrl) {
-        super(owner, "▶  " + movieTitle, ModalityType.APPLICATION_MODAL);
-
-        setSize(DIALOG_WIDTH, DIALOG_HEIGHT);
+        super(owner, movieTitle, ModalityType.APPLICATION_MODAL);
+        setUndecorated(true);
+        setSize(W, H);
         setLocationRelativeTo(owner);
         setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
-        setLayout(new BorderLayout());
-        getContentPane().setBackground(new Color(12, 12, 12));
+        setShape(new RoundRectangle2D.Double(0, 0, W, H, 10, 10));
 
-        add(buildToolbar(movieTitle, trailerUrl), BorderLayout.NORTH);
+        JPanel root = new JPanel(new BorderLayout());
+        root.setBackground(BG);
+        root.setBorder(BorderFactory.createLineBorder(BAR_LINE, 1));
+        setContentPane(root);
+
+        root.add(buildToolbar(movieTitle, trailerUrl), BorderLayout.NORTH);
 
         JPanel center = new JPanel(new BorderLayout());
-        center.setBackground(new Color(12, 12, 12));
+        center.setBackground(BG);
         center.add(buildLoadingPanel(), BorderLayout.CENTER);
-        add(center, BorderLayout.CENTER);
+        root.add(center, BorderLayout.CENTER);
 
         getRootPane().registerKeyboardAction(
             e -> closeSafely(),
             KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0),
-            JComponent.WHEN_IN_FOCUSED_WINDOW
-        );
+            JComponent.WHEN_IN_FOCUSED_WINDOW);
         addWindowListener(new WindowAdapter() {
             @Override public void windowClosing(WindowEvent e) { closeSafely(); }
         });
 
-       new SwingWorker<CefBrowser, Void>() {
-
-            @Override
-            protected CefBrowser doInBackground() throws Exception {
+        new SwingWorker<CefBrowser, Void>() {
+            @Override protected CefBrowser doInBackground() throws Exception {
                 initCef();
                 return cefClient.createBrowser(trailerUrl, false, false);
             }
-
-                @Override
-                protected void done() {
-                    try {
-                        CefBrowser b = get(); 
-                        browser = b;
-                        center.removeAll();
-                        center.add(b.getUIComponent(), BorderLayout.CENTER);
-                        center.revalidate();
-                        center.repaint();
-                    } catch (InterruptedException ex) {
-                        Thread.currentThread().interrupt();            
-                        JOptionPane.showMessageDialog(center, "Operación interrumpida.", "Aviso", JOptionPane.WARNING_MESSAGE);
-                    } catch (ExecutionException ex) {
-                        JOptionPane.showMessageDialog(center, ex.getCause().getMessage(), "Error al cargar el tráiler", JOptionPane.ERROR_MESSAGE);
-                    }
+            @Override protected void done() {
+                try {
+                    CefBrowser b = get();
+                    browser = b;
+                    center.removeAll();
+                    center.add(b.getUIComponent(), BorderLayout.CENTER);
+                    center.revalidate();
+                    center.repaint();
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                } catch (ExecutionException ex) {
+                    center.removeAll();
+                    center.add(buildErrorPanel(ex.getCause().getMessage()), BorderLayout.CENTER);
+                    center.revalidate();
                 }
-
-        }.execute();    
+            }
+        }.execute();
     }
-    
+
+    // ─── CEF ─────────────────────────────────────────────────────────────────
 
     public static synchronized void initCef() throws Exception {
         if (cefReady) return;
-
         CefAppBuilder builder = new CefAppBuilder();
-
         builder.setInstallDir(new File(System.getProperty("user.home"), ".jcef-bundle"));
-
         builder.setProgressHandler(new ConsoleProgressHandler());
-
         builder.setAppHandler(new MavenCefAppHandlerAdapter() {});
-
         builder.getCefSettings().windowless_rendering_enabled = false;
-        
         builder.getCefSettings().log_severity = org.cef.CefSettings.LogSeverity.LOGSEVERITY_FATAL;
-        
         builder.addJcefArgs("--ignore-gpu-blocklist", "--enable-gpu-rasterization");
-
-
         cefApp    = builder.build();
         cefClient = cefApp.createClient();
-
         cefClient.addDisplayHandler(new CefDisplayHandlerAdapter() {
-            @Override
-            public void onTitleChange(CefBrowser browser, String title) {
+            @Override public void onTitleChange(CefBrowser browser, String title) {
                 SwingUtilities.invokeLater(() -> {
                     Window w = SwingUtilities.windowForComponent(browser.getUIComponent());
                     if (w instanceof JDialog d && title != null && !title.isBlank())
-                        d.setTitle("▶  " + title);
+                        d.setTitle(title);
                 });
             }
         });
-
         cefClient.addLoadHandler(new CefLoadHandlerAdapter() {
-            @Override
-            public void onLoadError(CefBrowser b, org.cef.browser.CefFrame frame,
-                                    org.cef.handler.CefLoadHandler.ErrorCode code,
-                                    String errorText, String failedUrl) {
-                System.err.printf("[JCEF] Error carga [%s]: %s%n", code, failedUrl);
+            @Override public void onLoadError(CefBrowser b, org.cef.browser.CefFrame frame,
+                org.cef.handler.CefLoadHandler.ErrorCode code, String errorText, String failedUrl) {
+                System.err.printf("[JCEF] Error [%s]: %s%n", code, failedUrl);
             }
         });
-
         cefReady = true;
         System.out.println("[JCEF] Chromium listo.");
     }
 
     private void closeSafely() {
         CefBrowser b = browser;
-        if (b != null) {
-            browser = null;
-            b.close(true);
-        }
+        if (b != null) { browser = null; b.close(true); }
         dispose();
     }
 
     public static synchronized void shutdown() {
         if (cefApp != null) {
             cefApp.dispose();
-            cefApp    = null;
-            cefClient = null;
-            cefReady  = false;
+            cefApp = null; cefClient = null; cefReady = false;
         }
     }
 
+    public static void openTrailer(Window owner, String movieTitle, String trailerUrl) {
+        new TrailerBrowser(owner, movieTitle, trailerUrl).setVisible(true);
+    }
+
+    // ─── Toolbar ─────────────────────────────────────────────────────────────
+
     private JPanel buildToolbar(String movieTitle, String trailerUrl) {
-        JPanel bar = new JPanel(new BorderLayout(8, 0));
-        bar.setBackground(new Color(22, 22, 22));
-        bar.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(50, 50, 50)),
-            BorderFactory.createEmptyBorder(6, 14, 6, 14)
-        ));
-        bar.setPreferredSize(new Dimension(DIALOG_WIDTH, TOOLBAR_H));
+        JPanel bar = new JPanel(new BorderLayout(0, 0));
+        bar.setBackground(BAR_BG);
+        bar.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, BAR_LINE));
+        bar.setPreferredSize(new Dimension(W, BAR_H));
 
-        JLabel title = new JLabel("▶  " + movieTitle);
-        title.setForeground(new Color(215, 215, 215));
-        title.setFont(new Font("SansSerif", Font.BOLD, 13));
-        bar.add(title, BorderLayout.WEST);
+        // Lado izquierdo: botones navegación + título
+        JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+        left.setOpaque(false);
+        left.setBorder(BorderFactory.createEmptyBorder(8, 10, 8, 0));
 
-        JPanel controls = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
-        controls.setOpaque(false);
+        // Botón atrás — triángulo izquierda
+        IconButton btnBack = new IconButton(BAR_H - 16) {
+            @Override void drawIcon(Graphics2D g2, int cx, int cy) {
+                int[] xs = {cx+5, cx-4, cx+5};
+                int[] ys = {cy-6, cy,   cy+6};
+                g2.fillPolygon(xs, ys, 3);
+            }
+        };
+        btnBack.setToolTipText("Atrás");
+        btnBack.addActionListener(e -> { CefBrowser b = browser; if (b != null) b.goBack(); });
 
-        JButton btnGpu = btn("GPU info", new Color(40, 80, 40));
-        JButton btnBack  = btn("←",                 new Color(50, 50, 50));
-        JButton btnFwd   = btn("→",                 new Color(50, 50, 50));
-        JButton btnRel   = btn("↺ Recargar",        new Color(50, 50, 50));
-        JButton btnExt   = btn("↗ Navegador",       new Color(35, 70, 105));
-        JButton btnClose = btn("✕ Cerrar",          new Color(150, 28, 28));
+        // Botón adelante — triángulo derecha
+        IconButton btnFwd = new IconButton(BAR_H - 16) {
+            @Override void drawIcon(Graphics2D g2, int cx, int cy) {
+                int[] xs = {cx-5, cx+4, cx-5};
+                int[] ys = {cy-6, cy,   cy+6};
+                g2.fillPolygon(xs, ys, 3);
+            }
+        };
+        btnFwd.setToolTipText("Adelante");
+        btnFwd.addActionListener(e -> { CefBrowser b = browser; if (b != null) b.goForward(); });
 
-        
-        btnGpu.addActionListener(e -> { CefBrowser b = browser; if (b != null) b.loadURL("chrome://gpu"); });
-        btnBack .addActionListener(e -> { CefBrowser b = browser; if (b != null) b.goBack(); });
-        btnFwd  .addActionListener(e -> { CefBrowser b = browser; if (b != null) b.goForward(); });
-        btnRel  .addActionListener(e -> { CefBrowser b = browser; if (b != null) b.reload(); });
-        btnExt  .addActionListener(e -> openExternal(trailerUrl));
+        // Botón recargar — círculo con flecha
+        IconButton btnReload = new IconButton(BAR_H - 16) {
+            @Override void drawIcon(Graphics2D g2, int cx, int cy) {
+                g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                g2.drawArc(cx - 6, cy - 6, 12, 12, 60, 270);
+                // Punta de flecha
+                g2.setStroke(new BasicStroke(1.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                g2.drawLine(cx + 4, cy - 7, cx + 7, cy - 5);
+                g2.drawLine(cx + 4, cy - 7, cx + 2, cy - 4);
+            }
+        };
+        btnReload.setToolTipText("Recargar");
+        btnReload.addActionListener(e -> { CefBrowser b = browser; if (b != null) b.reload(); });
+
+        // Separador vertical
+        JPanel sep = new JPanel();
+        sep.setBackground(BAR_LINE);
+        sep.setPreferredSize(new Dimension(1, 22));
+
+        // Título de la película
+        JLabel titleLbl = new JLabel(movieTitle);
+        titleLbl.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        titleLbl.setForeground(TEXT);
+        titleLbl.setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 0));
+
+        left.add(btnBack);
+        left.add(btnFwd);
+        left.add(btnReload);
+        left.add(sep);
+        left.add(titleLbl);
+
+        // Lado derecho: abrir externo + cerrar
+        JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
+        right.setOpaque(false);
+        right.setBorder(BorderFactory.createEmptyBorder(8, 0, 8, 8));
+
+        // Botón abrir en navegador — cuadrado con flecha diagonal
+        IconButton btnExt = new IconButton(BAR_H - 16) {
+            @Override void drawIcon(Graphics2D g2, int cx, int cy) {
+                g2.setStroke(new BasicStroke(1.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                // Caja
+                g2.drawRect(cx - 5, cy - 3, 7, 7);
+                // Flecha diagonal
+                g2.drawLine(cx + 1, cy - 5, cx + 6, cy - 5);
+                g2.drawLine(cx + 6, cy - 5, cx + 6, cy);
+                g2.drawLine(cx + 1, cy - 4, cx + 5, cy - 8);
+            }
+        };
+        btnExt.setAccent(ACCENT);
+        btnExt.setToolTipText("Abrir en navegador");
+        btnExt.addActionListener(e -> openExternal(trailerUrl));
+
+        // Botón cerrar — X con color peligro
+        IconButton btnClose = new IconButton(BAR_H - 16) {
+            @Override void drawIcon(Graphics2D g2, int cx, int cy) {
+                g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                g2.drawLine(cx - 5, cy - 5, cx + 5, cy + 5);
+                g2.drawLine(cx + 5, cy - 5, cx - 5, cy + 5);
+            }
+        };
+        btnClose.setAccent(DANGER);
+        btnClose.setToolTipText("Cerrar");
         btnClose.addActionListener(e -> closeSafely());
 
-        
-        controls.add(btnGpu);
-        controls.add(btnBack);
-        controls.add(btnFwd);
-        controls.add(btnRel);
-        controls.add(btnExt);
-        controls.add(btnClose);
-        bar.add(controls, BorderLayout.EAST);
+        right.add(btnExt);
+        right.add(btnClose);
+
+        bar.add(left,  BorderLayout.WEST);
+        bar.add(right, BorderLayout.EAST);
         return bar;
     }
 
-    private static JButton btn(String text, Color bg) {
-        JButton b = new JButton(text);
-        b.setBackground(bg);
-        b.setForeground(Color.WHITE);
-        b.setFocusPainted(false);
-        b.setBorderPainted(false);
-        b.setFont(new Font("SansSerif", Font.PLAIN, 12));
-        b.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        b.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override public void mouseEntered(java.awt.event.MouseEvent e) { b.setBackground(bg.brighter()); }
-            @Override public void mouseExited(java.awt.event.MouseEvent e)  { b.setBackground(bg); }
-        });
-        return b;
-    }
+    // ─── Paneles de estado ────────────────────────────────────────────────────
 
     private static JPanel buildLoadingPanel() {
         JPanel p = new JPanel(new GridBagLayout());
-        p.setBackground(new Color(12, 12, 12));
-        JLabel lbl = new JLabel("Iniciando Chromium…");
-        lbl.setForeground(new Color(140, 140, 140));
-        lbl.setFont(new Font("SansSerif", Font.PLAIN, 14));
+        p.setBackground(BG);
+        JLabel lbl = new JLabel("Iniciando Chromium...");
+        lbl.setForeground(TEXT_DIM);
+        lbl.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        p.add(lbl);
+        return p;
+    }
+
+    private static JPanel buildErrorPanel(String msg) {
+        JPanel p = new JPanel(new GridBagLayout());
+        p.setBackground(BG);
+        JLabel lbl = new JLabel("Error al cargar: " + msg);
+        lbl.setForeground(new Color(200, 80, 80));
+        lbl.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         p.add(lbl);
         return p;
     }
@@ -240,13 +270,43 @@ public class TrailerBrowser extends JDialog {
     private static void openExternal(String url) {
         try { Desktop.getDesktop().browse(new URI(url)); }
         catch (IOException | URISyntaxException ex) {
-            JOptionPane.showMessageDialog(null,
-                "No se pudo abrir el navegador: " + ex.getMessage(),
-                "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(null, "No se pudo abrir el navegador: " + ex.getMessage());
         }
     }
 
-    public static void openTrailer(Window owner, String movieTitle, String trailerUrl) {
-        new TrailerBrowser(owner, movieTitle, trailerUrl).setVisible(true);
+    // ─── IconButton ──────────────────────────────────────────────────────────
+
+    /**
+     * Botón cuadrado con icono dibujado a mano con Graphics2D.
+     * Sin texto, sin Unicode — subclasear e implementar drawIcon().
+     */
+    abstract static class IconButton extends JButton {
+        private Color accent = new Color(160, 160, 180);
+
+        IconButton(int size) {
+            setPreferredSize(new Dimension(size, size));
+            setOpaque(false); setContentAreaFilled(false);
+            setBorderPainted(false); setFocusPainted(false);
+            setCursor(new Cursor(Cursor.HAND_CURSOR));
+        }
+
+        void setAccent(Color c) { this.accent = c; }
+
+        abstract void drawIcon(Graphics2D g2, int cx, int cy);
+
+        @Override protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            boolean hovered = getModel().isRollover();
+            if (hovered) {
+                g2.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 30));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 6, 6);
+            }
+
+            g2.setColor(hovered ? accent : new Color(150, 150, 170));
+            drawIcon(g2, getWidth() / 2, getHeight() / 2);
+            g2.dispose();
+        }
     }
 }

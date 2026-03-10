@@ -4,8 +4,6 @@ import java.awt.*;
 import java.awt.event.*;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.RoundRectangle2D;
-import java.util.concurrent.ExecutionException;
-
 import javax.swing.*;
 
 import com.tastedivekafka.FrontendApp;
@@ -19,8 +17,10 @@ import com.tastedivekafka.session.AppSession;
  */
 public class MainFrame extends JFrame {
 
-    private static final int WINDOW_WIDTH  = 920;
-    private static final int WINDOW_HEIGHT = 660;
+    // Tamaño inicial: 75% de la pantalla, mínimo 920x660
+    private static final Dimension SCREEN      = Toolkit.getDefaultToolkit().getScreenSize();
+    private static final int       WINDOW_WIDTH  = Math.max(920, (int)(SCREEN.width  * 0.75));
+    private static final int       WINDOW_HEIGHT = Math.max(660, (int)(SCREEN.height * 0.75));
 
     // Paleta
     static final Color BG          = new Color(18, 18, 22);
@@ -36,6 +36,8 @@ public class MainFrame extends JFrame {
     private final JPanel     galleryPanel = new JPanel();
     private final ImageCache imageCache   = new ImageCache();
     private int dragX, dragY;
+    private boolean maximized = false;
+    private Rectangle windowedBounds;  // guarda tamaño/posición al restaurar
 
     public MainFrame() {
         if (!AppSession.isLogged()) throw new IllegalStateException("No hay sesión activa");
@@ -78,7 +80,8 @@ public class MainFrame extends JFrame {
     private void updateGallery(String response) {
         if (!response.contains("||")) return;
         galleryPanel.removeAll();
-        galleryPanel.setLayout(new GridLayout(0, 4, 16, 16));
+        int cols = Math.max(2, (getWidth() - 64) / 190);
+        galleryPanel.setLayout(new GridLayout(0, cols, 16, 16));
         for (String movieData : response.split(";;")) {
             String[] parts = movieData.split("\\|\\|");
             if (parts.length >= 3)
@@ -96,51 +99,67 @@ public class MainFrame extends JFrame {
         setLocationRelativeTo(null);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setShape(new RoundRectangle2D.Double(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, 14, 14));
+        setMinimumSize(new Dimension(760, 520));
 
-        JPanel root = new JPanel(null);
+        JPanel root = new JPanel(new BorderLayout());
         root.setBackground(BG);
         setContentPane(root);
 
-        // ── Barra superior ──────────────────────────────────────────────────
-        JPanel bar = new JPanel(null);
+        // ── Barra superior con BorderLayout ─────────────────────────────────
+        JPanel bar = new JPanel(new BorderLayout());
         bar.setBackground(BG_BAR);
-        bar.setBounds(0, 0, WINDOW_WIDTH, 42);
+        bar.setPreferredSize(new Dimension(0, 42));
 
+        // Izquierda: título
         JLabel appTitle = new JLabel("MOVIE DISCOVERY");
-        appTitle.setBounds(16, 0, 200, 42);
+        appTitle.setBorder(BorderFactory.createEmptyBorder(0, 16, 0, 0));
         appTitle.setFont(new Font("Segoe UI", Font.BOLD, 13));
         appTitle.setForeground(ACCENT);
-        bar.add(appTitle);
+        bar.add(appTitle, BorderLayout.WEST);
 
-        // Avatar circular con initial del usuario
+        // Derecha: avatar + maximizar + cerrar
+        JPanel barRight = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 7));
+        barRight.setOpaque(false);
+
         String initial = AppSession.getCurrentUser().substring(0, 1).toUpperCase();
         AvatarButton avatar = new AvatarButton(initial);
-        avatar.setBounds(WINDOW_WIDTH - 84, 7, 28, 28);
+        avatar.setPreferredSize(new Dimension(28, 28));
         avatar.setToolTipText("Perfil de " + AppSession.getCurrentUser());
         avatar.addActionListener(e -> new ProfileDialog(MainFrame.this));
-        bar.add(avatar);
+        barRight.add(avatar);
+        barRight.add(Box.createRigidArea(new Dimension(8, 0)));
 
-        // Botón cerrar dibujado con lineas — sin Unicode
+        MaximizeButton btnMax = new MaximizeButton();
+        btnMax.setPreferredSize(new Dimension(46, 28));
+        btnMax.addActionListener(e -> toggleMaximize(btnMax));
+        barRight.add(btnMax);
+
         CloseButton btnClose = new CloseButton();
-        btnClose.setBounds(WINDOW_WIDTH - 46, 0, 46, 42);
+        btnClose.setPreferredSize(new Dimension(46, 28));
         btnClose.addActionListener(e -> { TrailerBrowser.shutdown(); System.exit(0); });
-        bar.add(btnClose);
+        barRight.add(btnClose);
 
-        // Drag
+        bar.add(barRight, BorderLayout.EAST);
+
+        // Drag — solo cuando no está maximizado
         bar.addMouseListener(new MouseAdapter() {
             @Override public void mousePressed(MouseEvent e) { dragX = e.getX(); dragY = e.getY(); }
+            @Override public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 2) toggleMaximize(btnMax);
+            }
         });
         bar.addMouseMotionListener(new MouseMotionAdapter() {
             @Override public void mouseDragged(MouseEvent e) {
-                setLocation(e.getXOnScreen() - dragX, e.getYOnScreen() - dragY);
+                if (!maximized)
+                    setLocation(e.getXOnScreen() - dragX, e.getYOnScreen() - dragY);
             }
         });
-        root.add(bar);
+        root.add(bar, BorderLayout.NORTH);
 
         // ── Barra de búsqueda ────────────────────────────────────────────────
         JPanel searchBar = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 8));
         searchBar.setBackground(BG);
-        searchBar.setBounds(0, 42, WINDOW_WIDTH, 52);
+        searchBar.setPreferredSize(new Dimension(0, 52));
 
         searchField.setPreferredSize(new Dimension(340, 34));
         searchField.setBackground(BG_CARD);
@@ -167,7 +186,6 @@ public class MainFrame extends JFrame {
         searchBar.add(searchField);
         searchBar.add(btnSearch);
         searchBar.add(btnLogout);
-        root.add(searchBar);
 
         // ── Galería ──────────────────────────────────────────────────────────
         galleryPanel.setBackground(BG);
@@ -176,23 +194,66 @@ public class MainFrame extends JFrame {
         scroll.getViewport().setBackground(BG);
         scroll.setBorder(BorderFactory.createEmptyBorder());
         scroll.getVerticalScrollBar().setUnitIncrement(16);
-        scroll.setBounds(16, 100, WINDOW_WIDTH - 32, WINDOW_HEIGHT - 116);
         DarkScrollBarUI.apply(scroll);
-        root.add(scroll);
+
+        // Panel central: searchbar + galería
+        JPanel center = new JPanel(new BorderLayout());
+        center.setBackground(BG);
+        center.setBorder(BorderFactory.createEmptyBorder(0, 16, 16, 16));
+        center.add(searchBar, BorderLayout.NORTH);
+        center.add(scroll,    BorderLayout.CENTER);
+        root.add(center, BorderLayout.CENTER);
+
+        // ── Columnas dinámicas al redimensionar ──────────────────────────────
+        scroll.addComponentListener(new ComponentAdapter() {
+            @Override public void componentResized(ComponentEvent e) {
+                updateGalleryColumns(scroll.getWidth());
+            }
+        });
 
         warmUpChromium();
     }
 
+    /** Calcula columnas según ancho disponible y relanza la galería si hay resultados */
+    private void updateGalleryColumns(int availableWidth) {
+        int cols = Math.max(2, availableWidth / 190);
+        if (galleryPanel.getLayout() instanceof GridLayout gl && gl.getColumns() == cols) return;
+        if (galleryPanel.getComponentCount() > 0 && galleryPanel.getLayout() instanceof GridLayout) {
+            galleryPanel.setLayout(new GridLayout(0, cols, 16, 16));
+            galleryPanel.revalidate();
+            galleryPanel.repaint();
+        }
+    }
+
+    /** Alterna entre maximizado y ventana restaurada */
+    private void toggleMaximize(MaximizeButton btn) {
+        if (!maximized) {
+            windowedBounds = getBounds();
+            setShape(null);  // sin bordes redondeados en fullscreen
+            GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+            Rectangle screen = ge.getMaximumWindowBounds(); // respeta taskbar
+            setBounds(screen);
+            maximized = true;
+        } else {
+            setBounds(windowedBounds);
+            setShape(new RoundRectangle2D.Double(0, 0, windowedBounds.width, windowedBounds.height, 14, 14));
+            maximized = false;
+        }
+        btn.setMaximized(maximized);
+    }
+
     private void warmUpChromium() {
         new SwingWorker<Void, Void>() {
-            @Override protected Void doInBackground() throws Exception {
-                TrailerBrowser.initCef(); return null;
-            }
-            @Override protected void done() {
-                try { get(); } catch (InterruptedException | ExecutionException ex) {
-                    System.err.println("[JCEF] Warm-up falló: " + ex.getMessage());
+            @Override protected Void doInBackground() {
+                try { TrailerBrowser.initCef(); }
+                catch (Exception ex) {
+                    // CefApp ya fue inicializado/destruido en esta JVM — se ignora,
+                    // el trailer browser seguirá funcionando si ya estaba activo.
+                    System.err.println("[JCEF] Warm-up omitido: " + ex.getMessage());
                 }
+                return null;
             }
+            @Override protected void done() { /* nada */ }
         }.execute();
     }
 
@@ -259,7 +320,7 @@ public class MainFrame extends JFrame {
             panel.add(slider, BorderLayout.CENTER);
 
             int res = JOptionPane.showConfirmDialog(this, panel,
-                "Añadir a visto", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+                "Añadir a favoritos", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
             if (res == JOptionPane.OK_OPTION) {
                 int rating = slider.getValue();
                 new SwingWorker<Void, Void>() {
@@ -311,6 +372,40 @@ public class MainFrame extends JFrame {
     }
 
     // ─── Componentes custom ───────────────────────────────────────────────────
+
+    /** Botón maximizar/restaurar — cuadrado dibujado con lineas */
+    public static class MaximizeButton extends JButton {
+        private boolean isMaximized = false;
+        public MaximizeButton() {
+            setOpaque(false); setContentAreaFilled(false);
+            setBorderPainted(false); setFocusPainted(false);
+            setCursor(new Cursor(Cursor.HAND_CURSOR));
+        }
+        public void setMaximized(boolean m) { isMaximized = m; repaint(); }
+        @Override protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            if (getModel().isRollover()) {
+                g2.setColor(new Color(255, 255, 255, 20));
+                g2.fillRect(0, 0, getWidth(), getHeight());
+            }
+            g2.setColor(new Color(180, 180, 180));
+            g2.setStroke(new BasicStroke(1.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            int cx = getWidth() / 2, cy = getHeight() / 2;
+            if (!isMaximized) {
+                // Cuadrado simple = maximizar
+                g2.drawRect(cx - 6, cy - 6, 12, 12);
+            } else {
+                // Dos cuadrados desplazados = restaurar
+                g2.drawRect(cx - 4, cy - 6, 10, 10);
+                g2.setColor(new Color(26, 26, 32)); // tapa la esquina
+                g2.fillRect(cx - 7, cy - 4, 8, 8);
+                g2.setColor(new Color(180, 180, 180));
+                g2.drawRect(cx - 7, cy - 4, 10, 10);
+            }
+            g2.dispose();
+        }
+    }
 
     /** Botón cierre — X dibujada con lineas, sin Unicode */
     public static class CloseButton extends JButton {
@@ -387,6 +482,7 @@ public class MainFrame extends JFrame {
         }
     }
 
+    /** Botón favorito con estrella dibujada */
     public static class FavButton extends JButton {
         private boolean active = false;
         public FavButton() {
@@ -405,7 +501,7 @@ public class MainFrame extends JFrame {
             drawStar(g2, 12, 12, 7, 3, active ? new Color(255, 200, 50) : new Color(100, 100, 120));
             g2.setColor(color);
             g2.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-            String label = active ? "Guardado" : "Visto";
+            String label = active ? "Guardado" : "Favorito";
             g2.drawString(label, 24, 16);
             g2.dispose();
         }
