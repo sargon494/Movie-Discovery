@@ -73,7 +73,7 @@ public class BackendClient {
     private static HttpResponse<String> post(String path, String body) throws Exception {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(BASE_URL + path))
-                .timeout(Duration.ofSeconds(20))
+                .timeout(Duration.ofSeconds(45))
                 .header("Content-Type", "text/plain;charset=UTF-8")
                 .POST(HttpRequest.BodyPublishers.ofString(body))
                 .build();

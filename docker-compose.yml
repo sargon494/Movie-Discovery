@@ -5,7 +5,9 @@ networks:
 services:
 
   # ───────────────────────────────────────────────────────
-  # KAFKA — KRaft mode (sin Zookeeper)
+  # KAFKA LOCAL — solo para desarrollo sin Aiven
+  # Para usar Aiven en local: comenta este bloque entero
+  # y cambia KAFKA_BOOTSTRAP_SERVERS en el servicio backend
   # ───────────────────────────────────────────────────────
   kafka:
     image: apache/kafka:latest
@@ -86,10 +88,22 @@ services:
 
   # ───────────────────────────────────────────────────────
   # BACKEND — Jetty en 8090
+  #
+  # Modos de Kafka disponibles (cambia las variables de entorno):
+  #
+  # MODO LOCAL (Kafka en Docker, sin SSL):
+  #   KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+  #   (sin variables KAFKA_SSL_*)
+  #
+  # MODO AIVEN (Kafka cloud, con SSL):
+  #   KAFKA_BOOTSTRAP_SERVERS: kafka-mvdv-xxxxx.aivencloud.com:XXXXX
+  #   KAFKA_SSL_CA_CERT_PATH:  /certs/ca.pem
+  #   KAFKA_SSL_CERT_PATH:     /certs/service.cert
+  #   KAFKA_SSL_KEY_PATH:      /certs/service.key
   # ───────────────────────────────────────────────────────
   backend:
     build:
-      context: ./backend       # usa backend/Dockerfile
+      context: ./backend
     container_name: backend
     networks:
       - local-kafka
@@ -97,15 +111,28 @@ services:
       - "8090:8090"
     depends_on:
       - postgres
-      - kafka
+    #  - kafka      
+    volumes:
+      # Carpeta con los certificados de Aiven descargados
+      # Solo necesaria en modo Aiven, no en modo local
+      - ./certs:/certs:ro
     environment:
-      # Kafka — listener INTERNO (29092) dentro de la red Docker
-      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      # PostgreSQL
+      # ── Kafka ──────────────────────────────────────────
+      # Modo local  → descomenta la línea de abajo y comenta las de Aiven
+      # KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+
+      # Modo Aiven → pon tu Service URI del panel de Aiven
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      KAFKA_SSL_CA_CERT_PATH:  /certs/ca.pem
+      KAFKA_SSL_CERT_PATH:     /certs/service.cert
+      KAFKA_SSL_KEY_PATH:      /certs/service.key
+
+      # ── PostgreSQL ─────────────────────────────────────
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
       DB_USER: ${POSTGRES_USER}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
-      # TasteDive API key
+
+      # ── TasteDive ──────────────────────────────────────
       TASTEDIVE_API_KEY: ${TASTEDIVE_API_KEY}
 
   # ───────────────────────────────────────────────────────
@@ -113,22 +140,18 @@ services:
   # ───────────────────────────────────────────────────────
   frontend:
     build:
-      context: ./frontend      # usa frontend/Dockerfile
+      context: ./frontend
     container_name: frontend
     networks:
       - local-kafka
     depends_on:
       - backend
     environment:
-      # BackendClient lee esta variable para saber dónde está el backend
       BACKEND_URL: http://backend:8090
-      # WSLg captura DISPLAY y muestra la ventana Swing en Windows
       DISPLAY: :0
     volumes:
-      # Socket X11 necesario para WSLg
       - /tmp/.X11-unix:/tmp/.X11-unix
     extra_hosts:
-      # Permite que el frontend se comunique con el backend usando "localhost" (útil para desarrollo)
       - "host.docker.internal:host-gateway"
 
 volumes:

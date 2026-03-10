@@ -3,9 +3,9 @@ package com.tastedivekafka.api;
 import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 import com.tastedivekafka.kafka.KafkaProducerService;
@@ -33,7 +33,7 @@ public class SearchServlet extends HttpServlet {
                     queue.offer(response);
                 }
             });
-            System.out.println("✅ SearchServlet consumer compartido iniciado");
+            System.out.println("SearchServlet consumer compartido iniciado");
         }
     }
 
