@@ -99,7 +99,7 @@ public class TrailerBrowser extends JDialog {
         builder.setAppHandler(new MavenCefAppHandlerAdapter() {});
         builder.getCefSettings().windowless_rendering_enabled = false;
         builder.getCefSettings().log_severity = org.cef.CefSettings.LogSeverity.LOGSEVERITY_FATAL;
-        builder.addJcefArgs("--ignore-gpu-blocklist", "--enable-gpu-rasterization");
+        builder.addJcefArgs("--ignore-gpu-blocklist", "--enable-gpu-rasterization", "--log-level=3", "--silent-debugger-extension-api");
         cefApp    = builder.build();
         cefClient = cefApp.createClient();
         cefClient.addDisplayHandler(new CefDisplayHandlerAdapter() {
@@ -134,8 +134,67 @@ public class TrailerBrowser extends JDialog {
         }
     }
 
+    private static final File JCEF_DIR = new File(System.getProperty("user.home"), ".jcef-bundle");
+
     public static void openTrailer(Window owner, String movieTitle, String trailerUrl) {
+        if (!cefReady && !JCEF_DIR.exists()) {
+            showFirstRunNotice(owner);
+        }
         new TrailerBrowser(owner, movieTitle, trailerUrl).setVisible(true);
+    }
+
+    private static void showFirstRunNotice(Window owner) {
+        JDialog notice = new JDialog(owner, "Preparando reproductor", Dialog.ModalityType.APPLICATION_MODAL);
+        notice.setUndecorated(true);
+        notice.setSize(420, 160);
+        notice.setLocationRelativeTo(owner);
+        notice.setShape(new RoundRectangle2D.Double(0, 0, 420, 160, 12, 12));
+
+        JPanel panel = new JPanel(new BorderLayout(0, 0));
+        panel.setBackground(new Color(22, 22, 32));
+        panel.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(50, 50, 70), 1),
+            BorderFactory.createEmptyBorder(24, 28, 24, 28)));
+        notice.setContentPane(panel);
+
+        JLabel title = new JLabel("Descargando reproductor de video");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        title.setForeground(new Color(225, 225, 230));
+
+        JLabel msg = new JLabel("<html><body style='width:340px'>La primera vez es necesario descargar el reproductor (~100 MB)."
+            + " Esto solo ocurre una vez y tarda aproximadamente 1 minuto.</body></html>");
+        msg.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        msg.setForeground(new Color(120, 120, 140));
+
+        JButton btnOk = new JButton("Entendido, continuar") {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(getModel().isRollover() ? new Color(70, 120, 220) : new Color(99, 155, 255));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                g2.setColor(Color.WHITE);
+                g2.setFont(new Font("Segoe UI", Font.BOLD, 12));
+                FontMetrics fm = g2.getFontMetrics();
+                g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+                g2.drawString(getText(), (getWidth()-fm.stringWidth(getText()))/2, (getHeight()+fm.getAscent()-fm.getDescent())/2);
+                g2.dispose();
+            }
+        };
+        btnOk.setOpaque(false); btnOk.setContentAreaFilled(false);
+        btnOk.setBorderPainted(false); btnOk.setFocusPainted(false);
+        btnOk.setPreferredSize(new Dimension(180, 36));
+        btnOk.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnOk.addActionListener(e -> notice.dispose());
+
+        JPanel bottom = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        bottom.setOpaque(false);
+        bottom.add(btnOk);
+
+        panel.add(title,  BorderLayout.NORTH);
+        panel.add(msg,    BorderLayout.CENTER);
+        panel.add(bottom, BorderLayout.SOUTH);
+
+        notice.setVisible(true); // bloquea hasta que el usuario pulsa OK
     }
 
     // ─── Toolbar ─────────────────────────────────────────────────────────────
@@ -250,7 +309,7 @@ public class TrailerBrowser extends JDialog {
     private static JPanel buildLoadingPanel() {
         JPanel p = new JPanel(new GridBagLayout());
         p.setBackground(BG);
-        JLabel lbl = new JLabel("Iniciando Chromium...");
+        JLabel lbl = new JLabel(!JCEF_DIR.exists() ? "Descargando reproductor... (solo la primera vez)" : "Cargando...");
         lbl.setForeground(TEXT_DIM);
         lbl.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         p.add(lbl);
