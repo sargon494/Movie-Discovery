@@ -177,6 +177,7 @@ public class MainFrame extends JFrame {
         scroll.setBorder(BorderFactory.createEmptyBorder());
         scroll.getVerticalScrollBar().setUnitIncrement(16);
         scroll.setBounds(16, 100, WINDOW_WIDTH - 32, WINDOW_HEIGHT - 116);
+        DarkScrollBarUI.apply(scroll);
         root.add(scroll);
 
         warmUpChromium();
@@ -258,7 +259,7 @@ public class MainFrame extends JFrame {
             panel.add(slider, BorderLayout.CENTER);
 
             int res = JOptionPane.showConfirmDialog(this, panel,
-                "Añadir a favoritos", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+                "Añadir a visto", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
             if (res == JOptionPane.OK_OPTION) {
                 int rating = slider.getValue();
                 new SwingWorker<Void, Void>() {
@@ -386,7 +387,6 @@ public class MainFrame extends JFrame {
         }
     }
 
-    /** Botón favorito con estrella dibujada */
     public static class FavButton extends JButton {
         private boolean active = false;
         public FavButton() {
@@ -405,7 +405,7 @@ public class MainFrame extends JFrame {
             drawStar(g2, 12, 12, 7, 3, active ? new Color(255, 200, 50) : new Color(100, 100, 120));
             g2.setColor(color);
             g2.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-            String label = active ? "Guardado" : "Favorito";
+            String label = active ? "Guardado" : "Visto";
             g2.drawString(label, 24, 16);
             g2.dispose();
         }
