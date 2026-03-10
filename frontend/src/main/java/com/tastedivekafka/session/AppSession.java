@@ -25,4 +25,8 @@ public final class AppSession {
     public static String getCurrentUser() {
         return currentUser;
     }
+
+    public static void setCurrentUser(String username) {
+    currentUser = username;
+}
 }

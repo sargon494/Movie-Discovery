@@ -2,6 +2,9 @@ package com.tastedivekafka;
 
 import com.tastedivekafka.api.SearchServlet;
 import com.tastedivekafka.api.AuthServlet;
+import com.tastedivekafka.api.FavoritesServlet;
+import com.tastedivekafka.api.HistoryServlet;
+import com.tastedivekafka.api.ProfileServlet;
 import com.tastedivekafka.kafka.KafkaConsumerService;
 
 import org.eclipse.jetty.server.Server;
@@ -49,6 +52,10 @@ public class BackendApp {
         Server server = new Server(PORT);
 
         ServletContextHandler context = new ServletContextHandler(ServletContextHandler.NO_SESSIONS);
+
+        context.addServlet(ProfileServlet.class,   "/profile/*");
+        context.addServlet(FavoritesServlet.class, "/favorites");
+        context.addServlet(HistoryServlet.class,   "/history");
         context.setContextPath("/");
 
         // POST /search  — recibe título de película, lo envía a Kafka y espera la respuesta para devolverla al frontend
