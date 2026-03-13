@@ -1,10 +1,43 @@
 package com.tastedivekafka.ui;
 
-import java.awt.*;
-import java.awt.event.*;
+import java.awt.BasicStroke;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Cursor;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.GraphicsEnvironment;
+import java.awt.GridLayout;
+import java.awt.Image;
+import java.awt.Rectangle;
+import java.awt.RenderingHints;
+import java.awt.Toolkit;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseMotionAdapter;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.RoundRectangle2D;
-import javax.swing.*;
+import java.util.concurrent.ExecutionException;
+
+import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JSlider;
+import javax.swing.JTextField;
+import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
+import javax.swing.SwingWorker;
 
 import com.tastedivekafka.FrontendApp;
 import com.tastedivekafka.session.AppSession;
@@ -189,7 +222,14 @@ public class MainFrame extends JFrame {
 
         // ── Galería ──────────────────────────────────────────────────────────
         galleryPanel.setBackground(BG);
-        JScrollPane scroll = new JScrollPane(galleryPanel);
+
+        // Wrapper que ancla la galería arriba — evita que GridLayout estire
+        // las cards verticalmente en fullscreen
+        JPanel galleryWrapper = new JPanel(new BorderLayout());
+        galleryWrapper.setBackground(BG);
+        galleryWrapper.add(galleryPanel, BorderLayout.NORTH);
+
+        JScrollPane scroll = new JScrollPane(galleryWrapper);
         scroll.setBackground(BG);
         scroll.getViewport().setBackground(BG);
         scroll.setBorder(BorderFactory.createEmptyBorder());
@@ -291,18 +331,18 @@ public class MainFrame extends JFrame {
                 @Override public void mouseExited(MouseEvent e)  { lbl.setForeground(new Color(150, 190, 255)); }
             });
 
-            FavButton favBtn = new FavButton();
-            favBtn.addActionListener(e -> showRatingDialog(favBtn));
+            ViewedButton viewedBtn = new ViewedButton();
+            viewedBtn.addActionListener(e -> showRatingDialog(viewedBtn));
 
             JPanel south = new JPanel(new BorderLayout(0, 2));
             south.setOpaque(false);
             south.setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4));
             south.add(lbl, BorderLayout.CENTER);
-            south.add(favBtn, BorderLayout.SOUTH);
+            south.add(viewedBtn, BorderLayout.SOUTH);
             add(south, BorderLayout.SOUTH);
         }
 
-        private void showRatingDialog(FavButton favBtn) {
+        private void showRatingDialog(ViewedButton viewedBtn) {
             JPanel panel = new JPanel(new BorderLayout(10, 10));
             panel.setBackground(BG_CARD);
             panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
@@ -320,17 +360,17 @@ public class MainFrame extends JFrame {
             panel.add(slider, BorderLayout.CENTER);
 
             int res = JOptionPane.showConfirmDialog(this, panel,
-                "Añadir a favoritos", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+                "Marcar como visto", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
             if (res == JOptionPane.OK_OPTION) {
                 int rating = slider.getValue();
                 new SwingWorker<Void, Void>() {
                     @Override protected Void doInBackground() throws Exception {
-                        BackendClient.addFavorite(cardTitle, cardImageURL, cardTrailerURL, rating);
+                        BackendClient.addViewed(cardTitle, cardImageURL, cardTrailerURL, rating);
                         return null;
                     }
                     @Override protected void done() {
-                        try { get(); favBtn.setActive(true); }
-                        catch (Exception ex) {
+                        try { get(); viewedBtn.setActive(true); }
+                        catch (InterruptedException | ExecutionException ex) {
                             JOptionPane.showMessageDialog(MovieCard.this, ex.getMessage());
                         }
                     }
@@ -342,7 +382,7 @@ public class MainFrame extends JFrame {
             new SwingWorker<Image, Void>() {
                 @Override protected Image doInBackground() { return cache.loadImage(url); }
                 @Override protected void done() {
-                    try { cardImage = get(); repaint(); } catch (Exception ignored) {}
+                    try { cardImage = get(); repaint(); } catch (InterruptedException | ExecutionException ignored) {}
                 }
             }.execute();
         }
@@ -482,10 +522,10 @@ public class MainFrame extends JFrame {
         }
     }
 
-    /** Botón favorito con estrella dibujada */
-    public static class FavButton extends JButton {
+    /** Botón visto con estrella dibujada */
+    public static class ViewedButton extends JButton {
         private boolean active = false;
-        public FavButton() {
+        public ViewedButton() {
             setOpaque(false); setContentAreaFilled(false);
             setBorderPainted(false); setFocusPainted(false);
             setCursor(new Cursor(Cursor.HAND_CURSOR));
@@ -501,7 +541,7 @@ public class MainFrame extends JFrame {
             drawStar(g2, 12, 12, 7, 3, active ? new Color(255, 200, 50) : new Color(100, 100, 120));
             g2.setColor(color);
             g2.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-            String label = active ? "Guardado" : "Favorito";
+            String label = active ? "Guardado" : "Visto";
             g2.drawString(label, 24, 16);
             g2.dispose();
         }
