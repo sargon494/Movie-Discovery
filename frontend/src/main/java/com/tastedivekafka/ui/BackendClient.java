@@ -1,12 +1,12 @@
 package com.tastedivekafka.ui;
 
-import com.tastedivekafka.session.AppSession;
-
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+
+import com.tastedivekafka.session.AppSession;
 
 /**
  * HTTP client wrapper for all backend communication.
@@ -14,7 +14,7 @@ import java.time.Duration;
  * Cambios respecto a la versión anterior:
  *  - Añadido header X-Username en todas las peticiones autenticadas
  *  - Métodos para perfil: getProfile, changeUsername, changePassword, deleteAccount
- *  - Métodos para favoritos: getFavorites, addFavorite, updateRating, removeFavorite
+ *  - Métodos para vistos: getViewed, addViewed, updateRating, removeViewed
  *  - Métodos para historial: getHistory, recordSearch
  */
 public class BackendClient {
@@ -51,7 +51,7 @@ public class BackendClient {
     // ── Profile ───────────────────────────────────────────────────────────────
 
     /**
-     * @return "username||created_at||total_searches||total_favorites"
+     * @return "username||created_at||total_searches||total_viewed"
      */
     public static String getProfile() throws Exception {
         HttpResponse<String> response = get("/profile");
@@ -92,15 +92,15 @@ public class BackendClient {
         HTTP.send(request, HttpResponse.BodyHandlers.ofString());
     }
 
-    // ── Favorites ─────────────────────────────────────────────────────────────
+    // ── Viewed ─────────────────────────────────────────────────────────────
 
     /**
      * @return "movieName||imageUrl||trailerUrl||rating||added_at;;..." o vacío
      */
-    public static String getFavorites() throws Exception {
-        HttpResponse<String> response = get("/favorites");
+    public static String getViewed() throws Exception {
+        HttpResponse<String> response = get("/viewed");
         if (response.statusCode() == 200) return response.body();
-        throw new Exception("Favorites error: " + response.statusCode());
+        throw new Exception("Viewed error: " + response.statusCode());
     }
 
     /**
@@ -109,21 +109,21 @@ public class BackendClient {
      * @param trailerUrl URL del trailer
      * @param rating     1-5 estrellas
      */
-    public static void addFavorite(String movieName, String imageUrl,
+    public static void addViewed(String movieName, String imageUrl,
                                     String trailerUrl, int rating) throws Exception {
         String body = movieName + "||" + imageUrl + "||" + trailerUrl + "||" + rating;
-        HttpResponse<String> response = post("/favorites", body, true);
-        if (response.statusCode() != 200) throw new Exception("Error añadiendo favorito");
+        HttpResponse<String> response = post("/viewed", body, true);
+        if (response.statusCode() != 200) throw new Exception("Error añadiendo visto");
     }
 
     public static void updateRating(String movieName, int rating) throws Exception {
-        HttpResponse<String> response = put("/favorites", movieName + "||" + rating);
+        HttpResponse<String> response = put("/viewed", movieName + "||" + rating);
         if (response.statusCode() != 200) throw new Exception("Error actualizando rating");
     }
 
-    public static void removeFavorite(String movieName) throws Exception {
+    public static void removeViewed(String movieName) throws Exception {
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(BASE_URL + "/favorites"))
+                .uri(URI.create(BASE_URL + "/viewed"))
                 .timeout(Duration.ofSeconds(20))
                 .header("Content-Type", "text/plain;charset=UTF-8")
                 .header("X-Username", AppSession.getCurrentUser())

@@ -1,20 +1,49 @@
 package com.tastedivekafka.ui;
 
-import com.tastedivekafka.FrontendApp;
-import com.tastedivekafka.session.AppSession;
-
-import javax.swing.*;
-import javax.swing.border.EmptyBorder;
-import java.awt.*;
-import java.awt.event.*;
+import java.awt.BorderLayout;
+import java.awt.CardLayout;
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Cursor;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.Window;
+import java.awt.event.FocusAdapter;
+import java.awt.event.FocusEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.RoundRectangle2D;
+import java.util.concurrent.ExecutionException;
+
+import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
+import javax.swing.JButton;
+import javax.swing.JDialog;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JPasswordField;
+import javax.swing.JScrollPane;
+import javax.swing.JSeparator;
+import javax.swing.JTextField;
+import javax.swing.SwingWorker;
+import javax.swing.border.EmptyBorder;
+
+import com.tastedivekafka.FrontendApp;
+import com.tastedivekafka.session.AppSession;
 
 /**
  * Diálogo de perfil — diseño profesional dark mode.
  *
  * Sin Unicode problemático — todos los iconos dibujados con Graphics2D.
- * Cuatro pestañas: Stats, Favoritos, Historial, Ajustes.
+ * Cuatro pestañas: Stats, Vistos, Historial, Ajustes.
  */
 public class ProfileDialog extends JDialog {
 
@@ -109,14 +138,14 @@ public class ProfileDialog extends JDialog {
         body.setBackground(BG_PANEL);
 
         // Navegación lateral de pestañas
-        String[] tabNames = {"Stats", "Favoritos", "Historial", "Ajustes"};
+        String[] tabNames = {"Stats", "Vistos", "Historial", "Ajustes"};
         JPanel nav = buildNav(tabNames);
 
         // Panel de contenido
         JPanel content = new JPanel(new CardLayout());
         content.setBackground(BG_PANEL);
         content.add(buildStatsPanel(),    "Stats");
-        content.add(buildFavoritesPanel(), "Favoritos");
+        content.add(buildViewedPanel(), "Vistos");
         content.add(buildHistoryPanel(),   "Historial");
         content.add(buildSettingsPanel(),  "Ajustes");
 
@@ -126,7 +155,7 @@ public class ProfileDialog extends JDialog {
             if (c instanceof NavButton btn) {
                 btn.addActionListener(e -> {
                     for (Component nb : nav.getComponents()) {
-                        if (nb instanceof NavButton) ((NavButton) nb).setSelected(false);
+                        if (nb instanceof NavButton navButton) navButton.setSelected(false);
                     }
                     btn.setSelected(true);
                     cl.show(content, btn.getText());
@@ -188,9 +217,9 @@ public class ProfileDialog extends JDialog {
                     panel.add(Box.createRigidArea(new Dimension(0, 8)));
                     panel.add(statRow("Busquedas totales", p.length > 2 ? p[2] : "0"));
                     panel.add(Box.createRigidArea(new Dimension(0, 8)));
-                    panel.add(statRow("Peliculas favoritas", p.length > 3 ? p[3] : "0"));
+                    panel.add(statRow("Peliculas vistas", p.length > 3 ? p[3] : "0"));
                     panel.revalidate(); panel.repaint();
-                } catch (Exception e) {
+                } catch (InterruptedException | ExecutionException e) {
                     loading.setText("Error: " + e.getMessage());
                 }
             }
@@ -220,41 +249,41 @@ public class ProfileDialog extends JDialog {
         return row;
     }
 
-    // ─── Favoritos ───────────────────────────────────────────────────────────
+    // ─── Vistos ───────────────────────────────────────────────────────────
 
-    private JScrollPane buildFavoritesPanel() {
+    private JScrollPane buildViewedPanel() {
         JPanel panel = new JPanel();
         panel.setBackground(BG_PANEL);
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setBorder(new EmptyBorder(24, 24, 24, 24));
 
-        panel.add(sectionTitle("Peliculas favoritas"));
+        panel.add(sectionTitle("Peliculas vistas"));
         panel.add(Box.createRigidArea(new Dimension(0, 16)));
 
-        JLabel loading = dimLabel("Cargando favoritos...");
+        JLabel loading = dimLabel("Cargando vistos...");
         panel.add(loading);
 
         new SwingWorker<String, Void>() {
             @Override protected String doInBackground() throws Exception {
-                return BackendClient.getFavorites();
+                return BackendClient.getViewed();
             }
             @Override protected void done() {
                 try {
                     panel.remove(loading);
                     String raw = get();
                     if (raw == null || raw.isBlank()) {
-                        panel.add(dimLabel("No tienes peliculas favoritas todavia."));
+                        panel.add(dimLabel("No tienes peliculas vistas todavia."));
                     } else {
                         for (String entry : raw.split(";;")) {
                             String[] p = entry.split("\\|\\|");
                             if (p.length >= 4) {
-                                panel.add(favRow(p[0], Integer.parseInt(p[3]), panel));
+                                panel.add(viewedRow(p[0], Integer.parseInt(p[3]), panel));
                                 panel.add(Box.createRigidArea(new Dimension(0, 8)));
                             }
                         }
                     }
                     panel.revalidate(); panel.repaint();
-                } catch (Exception e) {
+                } catch (InterruptedException | NumberFormatException | ExecutionException e) {
                     loading.setText("Error: " + e.getMessage());
                 }
             }
@@ -263,7 +292,7 @@ public class ProfileDialog extends JDialog {
         return scrollWrap(panel);
     }
 
-    private JPanel favRow(String movieName, int rating, JPanel parent) {
+    private JPanel viewedRow(String movieName, int rating, JPanel parent) {
         JPanel row = new JPanel(new BorderLayout(8, 0));
         row.setBackground(BG_CARD);
         row.setBorder(BorderFactory.createCompoundBorder(
@@ -298,7 +327,7 @@ public class ProfileDialog extends JDialog {
         remove.setCursor(new Cursor(Cursor.HAND_CURSOR));
         remove.addActionListener(e -> new SwingWorker<Void, Void>() {
             @Override protected Void doInBackground() throws Exception {
-                BackendClient.removeFavorite(movieName); return null;
+                BackendClient.removeViewed(movieName); return null;
             }
             @Override protected void done() {
                 parent.remove(row);
@@ -377,7 +406,7 @@ public class ProfileDialog extends JDialog {
                         }
                     }
                     panel.revalidate(); panel.repaint();
-                } catch (Exception e) {
+                } catch (InterruptedException | ExecutionException e) {
                     loading.setText("Error: " + e.getMessage());
                 }
             }
@@ -435,7 +464,7 @@ public class ProfileDialog extends JDialog {
                         AppSession.setCurrentUser(newName);
                         showToast("Nombre actualizado a: " + newName, SUCCESS);
                         dispose();
-                    } catch (Exception ex) {
+                    } catch (InterruptedException | ExecutionException ex) {
                         showToast(ex.getMessage(), DANGER);
                     }
                 }
@@ -469,7 +498,7 @@ public class ProfileDialog extends JDialog {
                         get();
                         showToast("Contrasena actualizada correctamente", SUCCESS);
                         oldPassField.setText(""); newPassField.setText("");
-                    } catch (Exception ex) {
+                    } catch (InterruptedException | ExecutionException ex) {
                         showToast(ex.getMessage(), DANGER);
                     }
                 }
@@ -625,6 +654,7 @@ public class ProfileDialog extends JDialog {
             setMaximumSize(new Dimension(120, 38));
             setPreferredSize(new Dimension(120, 38));
         }
+        @Override
         public void setSelected(boolean s) { selected = s; repaint(); }
         @Override protected void paintComponent(Graphics g) {
             Graphics2D g2 = (Graphics2D) g.create();

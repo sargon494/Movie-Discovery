@@ -1,24 +1,28 @@
 package com.tastedivekafka.api;
 
+import java.io.IOException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
 import com.tastedivekafka.db.DBConnection;
+
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import java.io.IOException;
-import java.sql.*;
-
 /**
- * Endpoints de favoritos.
+ * Endpoints de vistos.
  *
- * GET  /favorites              → lista de favoritos del usuario
- * POST /favorites              → añadir favorito   body: movieName||imageUrl||trailerUrl||rating
- * PUT  /favorites              → actualizar rating  body: movieName||rating
- * DEL  /favorites              → quitar favorito    body: movieName
+ * GET  /viewed              → lista de películas vistas del usuario
+ * POST /viewed              → añadir vista   body: movieName||imageUrl||trailerUrl||rating
+ * PUT  /viewed              → actualizar rating  body: movieName||rating
+ * DEL  /viewed              → quitar vista    body: movieName
  *
  * Header requerido: X-Username
  */
-public class FavoritesServlet extends HttpServlet {
+public class ViewedServlet extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
@@ -31,7 +35,7 @@ public class FavoritesServlet extends HttpServlet {
         try (Connection conn = DBConnection.getConnection()) {
             String sql = """
                 SELECT f.movie_name, f.image_url, f.trailer_url, f.rating, f.added_at
-                FROM user_favorites f
+                FROM user_viewed f
                 JOIN users u ON u.id = f.user_id
                 WHERE u.username = ?
                 ORDER BY f.added_at DESC
@@ -73,10 +77,9 @@ public class FavoritesServlet extends HttpServlet {
             return;
         }
 
-        // formato: movieName||imageUrl||trailerUrl||rating
         String[] parts = body.split("\\|\\|");
         if (parts.length < 4) {
-            resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "Formato inválido");
+            resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "Formato invalido");
             return;
         }
 
@@ -86,16 +89,14 @@ public class FavoritesServlet extends HttpServlet {
         int    rating     = Integer.parseInt(parts[3].trim());
 
         try (Connection conn = DBConnection.getConnection()) {
-            // Obtener user_id
             int userId = getUserId(conn, username);
             if (userId == -1) {
                 resp.sendError(HttpServletResponse.SC_NOT_FOUND, "Usuario no encontrado");
                 return;
             }
 
-            // INSERT OR UPDATE si ya existe (upsert)
             String sql = """
-                INSERT INTO user_favorites (user_id, movie_name, image_url, trailer_url, rating)
+                INSERT INTO user_viewed (user_id, movie_name, image_url, trailer_url, rating)
                 VALUES (?, ?, ?, ?, ?)
                 ON CONFLICT (user_id, movie_name)
                 DO UPDATE SET rating = EXCLUDED.rating, added_at = NOW()
@@ -111,7 +112,7 @@ public class FavoritesServlet extends HttpServlet {
             }
 
             resp.setContentType("text/plain;charset=UTF-8");
-            resp.getWriter().write("FAVORITE_ADDED");
+            resp.getWriter().write("VIEWED_ADDED");
 
         } catch (SQLException e) {
             resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, e.getMessage());
@@ -132,7 +133,6 @@ public class FavoritesServlet extends HttpServlet {
             return;
         }
 
-        // formato: movieName||rating
         String[] parts    = body.split("\\|\\|");
         String   movieName = parts[0].trim();
         int      rating    = Integer.parseInt(parts[1].trim());
@@ -140,7 +140,7 @@ public class FavoritesServlet extends HttpServlet {
         try (Connection conn = DBConnection.getConnection()) {
             int userId = getUserId(conn, username);
             String sql = """
-                UPDATE user_favorites SET rating = ?
+                UPDATE user_viewed SET rating = ?
                 WHERE user_id = ? AND movie_name = ?
                 """;
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -173,13 +173,13 @@ public class FavoritesServlet extends HttpServlet {
         try (Connection conn = DBConnection.getConnection()) {
             int userId = getUserId(conn, username);
             try (PreparedStatement ps = conn.prepareStatement(
-                    "DELETE FROM user_favorites WHERE user_id = ? AND movie_name = ?")) {
+                    "DELETE FROM user_viewed WHERE user_id = ? AND movie_name = ?")) {
                 ps.setInt(1, userId);
                 ps.setString(2, movieName.trim());
                 ps.executeUpdate();
             }
             resp.setContentType("text/plain;charset=UTF-8");
-            resp.getWriter().write("FAVORITE_REMOVED");
+            resp.getWriter().write("VIEWED_REMOVED");
         } catch (SQLException e) {
             resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, e.getMessage());
         }
