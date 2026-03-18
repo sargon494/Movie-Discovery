@@ -1,13 +1,18 @@
 package com.tastedivekafka.api;
 
+import java.io.IOException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+import org.mindrot.jbcrypt.BCrypt;
+
 import com.tastedivekafka.db.DBConnection;
+
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.mindrot.jbcrypt.BCrypt;
-
-import java.io.IOException;
-import java.sql.*;
 
 /**
  * Endpoints de perfil de usuario.
@@ -35,7 +40,7 @@ public class ProfileServlet extends HttpServlet {
                 SELECT u.username,
                        u.created_at,
                        (SELECT COUNT(*) FROM search_history  WHERE user_id = u.id) AS total_searches,
-                       (SELECT COUNT(*) FROM user_favorites  WHERE user_id = u.id) AS total_favorites
+                       (SELECT COUNT(*) FROM user_viewed  WHERE user_id = u.id) AS total_viewed
                 FROM users u
                 WHERE u.username = ?
                 """;
@@ -52,7 +57,7 @@ public class ProfileServlet extends HttpServlet {
                 String result = rs.getString("username") + "||"
                     + rs.getString("created_at") + "||"
                     + rs.getLong("total_searches") + "||"
-                    + rs.getLong("total_favorites");
+                    + rs.getLong("total_viewed");
 
                 resp.setContentType("text/plain;charset=UTF-8");
                 resp.getWriter().write(result);
@@ -72,12 +77,12 @@ public class ProfileServlet extends HttpServlet {
 
         String pathInfo = req.getPathInfo(); // /username o /password
 
-        if ("/username".equals(pathInfo)) {
-            changeUsername(req, resp, username);
-        } else if ("/password".equals(pathInfo)) {
-            changePassword(req, resp, username);
-        } else {
+        if (null == pathInfo) {
             resp.sendError(HttpServletResponse.SC_NOT_FOUND);
+        } else switch (pathInfo) {
+            case "/username" -> changeUsername(req, resp, username);
+            case "/password" -> changePassword(req, resp, username);
+            default -> resp.sendError(HttpServletResponse.SC_NOT_FOUND);
         }
     }
 
