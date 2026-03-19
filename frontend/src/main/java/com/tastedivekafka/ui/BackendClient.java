@@ -28,16 +28,33 @@ public class BackendClient {
 
     // ── Auth ─────────────────────────────────────────────────────────────────
 
-    public static boolean login(String username, String password) throws Exception {
-        HttpResponse<String> response = post("/auth/login", username + ":" + password, false);
-        return response.statusCode() == 200 && "LOGIN_SUCCESSFUL".equals(response.body());
+    /**
+     * Intenta login con email o username.
+     * @return el username si ok, null si credenciales incorrectas
+     * @throws Exception con mensaje "NOT_VERIFIED" si la cuenta no está verificada
+     */
+    public static String login(String identifier, String password) throws Exception {
+        HttpResponse<String> response = post("/auth/login", identifier + ":" + password, false);
+        if (response.statusCode() == 200 && response.body().startsWith("LOGIN_SUCCESSFUL:")) {
+            return response.body().substring("LOGIN_SUCCESSFUL:".length());
+        }
+        if (response.statusCode() == 403 && "NOT_VERIFIED".equals(response.body())) {
+            throw new Exception("NOT_VERIFIED");
+        }
+        return null;
     }
 
-    public static boolean register(String username, String password) throws Exception {
-        HttpResponse<String> response = post("/auth/register", username + ":" + password, false);
-        if (response.statusCode() == 409) return false;
-        if (response.statusCode() == 200) return true;
-        throw new Exception("Unexpected status: " + response.statusCode());
+    /**
+     * Registra un nuevo usuario.
+     * @return "VERIFY_EMAIL" si ok, "USER_EXISTS" si ya existe
+     * @throws Exception si hay error de servidor
+     */
+    public static String register(String username, String email, String password) throws Exception {
+        HttpResponse<String> response = post("/auth/register",
+            username + ":" + email + ":" + password, false);
+        if (response.statusCode() == 200)  return response.body(); // VERIFY_EMAIL
+        if (response.statusCode() == 409)  return "USER_EXISTS";
+        throw new Exception("Error: " + response.statusCode());
     }
 
     // ── Search ────────────────────────────────────────────────────────────────
