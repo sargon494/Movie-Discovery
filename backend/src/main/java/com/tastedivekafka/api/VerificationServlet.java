@@ -33,7 +33,7 @@ public class VerificationServlet extends HttpServlet {
 
             // Buscar token válido, no usado y no expirado
             String sql = """
-                SELECT vt.id, vt.user_id, vt.used, vt.expires_at
+                SELECT vt.user_id, vt.used, vt.expires_at
                 FROM verification_tokens vt
                 WHERE vt.token = ?
                 """;
@@ -58,8 +58,7 @@ public class VerificationServlet extends HttpServlet {
                     return;
                 }
 
-                int tokenId = rs.getInt("id");
-                int userId  = rs.getInt("user_id");
+                int userId = rs.getInt("user_id");
 
                 // Marcar usuario como verificado
                 try (PreparedStatement upUser = conn.prepareStatement(
@@ -68,10 +67,10 @@ public class VerificationServlet extends HttpServlet {
                     upUser.executeUpdate();
                 }
 
-                // Marcar token como usado
+                // Marcar token como usado — por token string, no por UUID id
                 try (PreparedStatement upToken = conn.prepareStatement(
-                        "UPDATE verification_tokens SET used = TRUE WHERE id = ?")) {
-                    upToken.setInt(1, tokenId);
+                        "UPDATE verification_tokens SET used = TRUE WHERE token = ?")) {
+                    upToken.setString(1, token);
                     upToken.executeUpdate();
                 }
 
