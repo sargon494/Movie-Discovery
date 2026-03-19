@@ -1,6 +1,5 @@
 package com.tastedivekafka;
 
-import java.sql.SQLException;
 import java.util.logging.Logger;
 
 import org.eclipse.jetty.server.Server;
@@ -11,6 +10,7 @@ import com.tastedivekafka.api.AuthServlet;
 import com.tastedivekafka.api.HistoryServlet;
 import com.tastedivekafka.api.ProfileServlet;
 import com.tastedivekafka.api.SearchServlet;
+import com.tastedivekafka.api.VerificationServlet;
 import com.tastedivekafka.api.ViewedServlet;
 import com.tastedivekafka.kafka.KafkaConsumerService;
 
@@ -25,7 +25,7 @@ public class BackendApp {
             try {
                 KafkaConsumerService consumer = new KafkaConsumerService();
                 consumer.listen();
-            } catch (SQLException e) {
+            } catch (Exception e) {
                 LOGGER.severe(() -> "Kafka consumer failed: " + e.getMessage());
             }
         }, "kafka-consumer-thread").start();
@@ -40,10 +40,11 @@ public class BackendApp {
         context.addServlet(HistoryServlet.class,  "/history");
         context.addServlet(new ServletHolder(new SearchServlet()), "/search");
         context.addServlet(new ServletHolder(new AuthServlet()),   "/auth/*");
+        context.addServlet(VerificationServlet.class,                "/verify");
 
         server.setHandler(context);
 
-        LOGGER.info(() -> "Backend starting on port " + PORT);
+        LOGGER.info("Backend starting on port " + PORT);
         server.start();
         server.join();
     }
